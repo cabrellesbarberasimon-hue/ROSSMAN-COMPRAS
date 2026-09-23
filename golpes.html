@@ -1,0 +1,762 @@
+<title>Análisis de Golpes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  color-scheme: light;
+  --ground:#f3f5f8; --surface:#ffffff; --surface-2:#eaeef4; --line:#d7dde6;
+  --ink:#172033; --ink-2:#4d5870; --ink-3:#7c869a;
+  --accent:#c4122f; --accent-ink:#ffffff; --accent-soft:#fbe4e8;
+  --data:#2d64c8; --data-soft:#e2ebfa; --data-ink:#ffffff;
+  --warn:#8a5b00; --warn-soft:#fff2c9;
+  --alert:#b3261e; --alert-soft:#fde5e3;
+  --ok:#18805a; --ok-soft:#dcf1e7;
+  --shadow:0 12px 40px rgba(23,32,51,.18);
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --ground:#10141d; --surface:#171d29; --surface-2:#202838; --line:#2d3748;
+    --ink:#e8ecf3; --ink-2:#aeb7c8; --ink-3:#7d879b;
+    --accent:#ff5a72; --accent-ink:#1a0006; --accent-soft:#3a1720;
+    --data:#7aa6ff; --data-soft:#1c2a47; --data-ink:#0b1426;
+    --warn:#ffd36b; --warn-soft:#3a3016;
+    --alert:#ff8a80; --alert-soft:#3d1c1a;
+    --ok:#4fd19a; --ok-soft:#143428;
+    --shadow:0 12px 40px rgba(0,0,0,.5);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --ground:#10141d; --surface:#171d29; --surface-2:#202838; --line:#2d3748;
+  --ink:#e8ecf3; --ink-2:#aeb7c8; --ink-3:#7d879b;
+  --accent:#ff5a72; --accent-ink:#1a0006; --accent-soft:#3a1720;
+  --data:#7aa6ff; --data-soft:#1c2a47; --data-ink:#0b1426;
+  --warn:#ffd36b; --warn-soft:#3a3016;
+  --alert:#ff8a80; --alert-soft:#3d1c1a;
+  --ok:#4fd19a; --ok-soft:#143428;
+  --shadow:0 12px 40px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font:14px/1.5 var(--f-body);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--data);outline-offset:2px}
+.wrap{max-width:1320px;margin:0 auto;padding-inline:16px}
+
+header.top{background:var(--ink);color:var(--ground)}
+:root[data-theme="dark"] header.top{background:var(--surface);color:var(--ink)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) header.top{background:var(--surface);color:var(--ink)}}
+header.top .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px;padding-block:14px}
+.brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.brand h1{font:700 26px/1 var(--f-display);letter-spacing:.02em;margin:0;text-transform:uppercase}
+.brand span{font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.7}
+.period{margin-left:auto;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.period label{font:600 12px/1 var(--f-display);letter-spacing:.12em;text-transform:uppercase;opacity:.75}
+.period select,.period input{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:6px 8px;width:auto}
+.syncnote{font-size:12px;opacity:.7;width:100%;text-align:right}
+@media (max-width:640px){.period{margin-left:0}.syncnote{text-align:left}}
+
+nav.tabs{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+nav.tabs .wrap{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+nav.tabs button{background:none;border:0;padding:12px 14px;cursor:pointer;color:var(--ink-2);font-weight:500;border-bottom:3px solid transparent;white-space:nowrap}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+nav.tabs button:hover{color:var(--ink)}
+nav.tabs .count{font-family:var(--f-mono);font-size:11px;background:var(--surface-2);border-radius:10px;padding:1px 6px;margin-left:6px}
+
+main{padding-block:20px 60px}
+section.view{display:grid;gap:20px}
+h2{font:600 22px/1.1 var(--f-display);text-transform:uppercase;letter-spacing:.03em;margin:0;text-wrap:balance}
+h3{font:600 16px/1.2 var(--f-display);text-transform:uppercase;letter-spacing:.05em;margin:0;color:var(--ink-2)}
+.muted{color:var(--ink-3)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;display:grid;gap:12px;align-content:start;min-width:0}
+.phead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.phead small{font-size:12px;color:var(--ink-3)}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));background:var(--surface);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.kpi{box-shadow:1px 1px 0 var(--line);padding:14px 16px;display:grid;gap:2px;align-content:start;min-width:0}
+.kpi .n{font:600 34px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.kpi .t{font:600 19px/1.1 var(--f-display);text-transform:uppercase;letter-spacing:.02em;overflow-wrap:break-word;padding-block:4px 3px}
+.kpi .l{font-size:12px;color:var(--ink-2)}
+.kpi .s{font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.kpi.alert{background:var(--alert-soft)} .kpi.alert .n{color:var(--alert)}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start}
+@media (max-width:900px){.grid2{grid-template-columns:minmax(0,1fr)}}
+
+/* horizontal bars */
+.bars{display:grid;gap:2px}
+.bar{display:grid;grid-template-columns:minmax(90px,38%) minmax(0,1fr) 34px;align-items:center;gap:10px;background:none;border:0;padding:4px 6px;margin:0 -6px;border-radius:4px;text-align:left;cursor:pointer}
+.bar:hover{background:var(--surface-2)}
+.bar .k{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .tr{height:14px;display:flex}
+.bar .fill{background:var(--data);border-radius:0 4px 4px 0;min-width:3px}
+.bar .v{font:500 13px/1 var(--f-mono);text-align:right;font-variant-numeric:tabular-nums}
+.bar.region .k::after{content:" · región";color:var(--warn);font-size:11px}
+.more{justify-self:start;background:none;border:0;color:var(--data);cursor:pointer;padding:4px 0;font-weight:500}
+
+/* month columns */
+.cols{display:flex;align-items:flex-end;gap:6px;height:180px;padding-top:18px;border-bottom:1px solid var(--line);overflow-x:auto}
+.col{flex:1 0 34px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;gap:4px;cursor:default}
+.col .v{font:500 12px/1 var(--f-mono);color:var(--ink-2)}
+.col .c{width:min(36px,70%);background:var(--data);border-radius:4px 4px 0 0;min-height:2px}
+.col:hover .c{filter:brightness(1.12)}
+.colx{display:flex;gap:6px}
+.colx span{flex:1 0 34px;text-align:center;font:500 11px/1.2 var(--f-mono);color:var(--ink-3);text-transform:lowercase}
+
+/* matrix */
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);font-weight:600;white-space:nowrap;background:var(--surface);vertical-align:bottom}
+td.num,th.num{text-align:right}
+.mono{font-family:var(--f-mono);font-size:12.5px}
+.matrix th,.matrix td{padding:6px 8px;text-align:center;vertical-align:middle;border:1px solid var(--surface)}
+.matrix thead th.p{writing-mode:vertical-rl;transform:rotate(180deg);text-align:left;height:110px;padding:6px 4px;letter-spacing:.03em;text-transform:none;font-size:12px;color:var(--ink-2)}
+.matrix tbody th,.matrix tfoot th{text-align:left;font-weight:600;font-size:13px;white-space:nowrap;position:sticky;left:0;background:var(--surface);z-index:1}
+.matrix td.h{min-width:34px;font:500 12.5px/1 var(--f-mono);cursor:pointer}
+.matrix td.z{color:var(--ink-3);opacity:.35}
+.matrix td.tot,.matrix th.tot{font-weight:600;background:var(--surface-2)}
+
+tr.click{cursor:pointer}
+tr.click:hover td{background:var(--surface-2)}
+td.art{min-width:260px;max-width:460px}
+td.nowrap{white-space:nowrap}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:20px;padding:2px 10px 2px 8px;font-size:12px;font-weight:600;white-space:nowrap}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.pill.Golpe{background:var(--accent-soft);color:var(--accent)}
+.pill.Pérdida{background:var(--warn-soft);color:var(--warn)}
+.tag{display:inline-block;font:600 11px/1.3 var(--f-display);letter-spacing:.06em;text-transform:uppercase;background:var(--surface-2);border-radius:3px;padding:2px 6px;white-space:nowrap}
+.tag.otros{background:var(--warn-soft);color:var(--warn)}
+.orig{display:block;font-size:11px;color:var(--ink-3)}
+.warnc{color:var(--warn)}
+
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.toolbar .grow{flex:1 1 220px}
+input[type=search],input[type=text],input[type=date],input[type=number],select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:7px 10px;width:100%;min-width:0}
+textarea{resize:vertical}
+.toolbar select{width:auto;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:4px;padding:7px 14px;cursor:pointer;font-weight:500;white-space:nowrap}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.danger{color:var(--alert);border-color:var(--alert)}
+.btn.danger.armed{background:var(--alert);color:var(--surface)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.fchips{display:flex;flex-wrap:wrap;gap:6px}
+.fchip{display:inline-flex;align-items:center;gap:6px;background:var(--data-soft);color:var(--ink);border:0;border-radius:14px;padding:3px 10px;font-size:12px;cursor:pointer}
+.fchip b{font-weight:600}
+.fchip::after{content:"×";font-size:14px;line-height:1;color:var(--ink-2)}
+
+.scrim{position:fixed;inset:0;background:rgba(10,14,22,.45);z-index:20}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(620px,100%);background:var(--surface);z-index:21;box-shadow:var(--shadow);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.drawer header{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line)}
+.drawer header h2{flex:1}
+.drawer .body{overflow-y:auto;padding:16px 20px;display:grid;gap:22px}
+.drawer footer{display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--line);flex-wrap:wrap}
+.drawer footer .sp{flex:1}
+fieldset{border:0;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+legend{font:600 13px/1 var(--f-display);letter-spacing:.12em;text-transform:uppercase;color:var(--accent);padding:0;margin-bottom:10px}
+label.f{display:grid;gap:4px;font-size:12px;color:var(--ink-2);font-weight:500}
+label.f.wide{grid-column:1/-1}
+.calc{font-size:12px;color:var(--ink-2);background:var(--surface-2);border-radius:4px;padding:8px 10px;grid-column:1/-1}
+.err{color:var(--alert);font-size:12px}
+
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.rules textarea{font:12.5px/1.6 var(--f-mono);min-height:320px}
+.help{max-width:78ch;display:grid;gap:10px;color:var(--ink-2)}
+.help p{margin:0}
+.help code{font-family:var(--f-mono);font-size:12.5px;background:var(--surface-2);padding:1px 5px;border-radius:3px}
+.unres{display:flex;flex-wrap:wrap;gap:6px}
+
+.tip{position:fixed;z-index:50;pointer-events:none;background:var(--ink);color:var(--ground);font-size:12px;padding:6px 9px;border-radius:4px;max-width:260px;box-shadow:var(--shadow)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--ground);padding:10px 16px;border-radius:4px;z-index:40;font-weight:500;max-width:calc(100% - 32px)}
+.empty{padding:40px 16px;text-align:center;color:var(--ink-3)}
+@media (prefers-reduced-motion:no-preference){.drawer{animation:slide .18s ease-out}@keyframes slide{from{transform:translateX(24px);opacity:.6}}}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><h1>Análisis de Golpes</h1><span>Artículos golpeados en transporte</span></div>
+    <div class="period">
+      <label for="perSel">Periodo · fecha albarán</label>
+      <select id="perSel">
+        <option value="mar26">Desde 01/03/2026</option>
+        <option value="feb26">Desde 01/02/2026</option>
+        <option value="y2026">Año 2026</option>
+        <option value="d90">Últimos 90 días</option>
+        <option value="all">Todo</option>
+        <option value="custom">Personalizado…</option>
+      </select>
+      <input type="date" id="perFrom" aria-label="Desde" hidden>
+      <input type="date" id="perTo" aria-label="Hasta" hidden>
+      <span class="syncnote" id="modeNote"></span>
+    </div>
+  </div>
+</header>
+<nav class="tabs" aria-label="Secciones">
+  <div class="wrap" role="tablist">
+    <button role="tab" data-tab="resumen" id="tab-resumen">Resumen</button>
+    <button role="tab" data-tab="incidencias" id="tab-incidencias">Incidencias<span class="count" id="cntInc">0</span></button>
+    <button role="tab" data-tab="reglas" id="tab-reglas">Normalización</button>
+  </div>
+</nav>
+
+<main class="wrap">
+  <section class="view" id="v-resumen">
+    <div class="kpis" id="kpis"></div>
+    <div class="grid2">
+      <div class="panel"><div class="phead"><h3>Por familia + modelo</h3><small>nº de incidencias</small></div><div id="bFam"></div></div>
+      <div class="panel"><div class="phead"><h3>Por transporte</h3><small>nº de incidencias</small></div><div id="bTrans"></div></div>
+      <div class="panel"><div class="phead"><h3>Por provincia</h3><small>nº de incidencias</small></div><div id="bProv"></div></div>
+      <div class="panel"><div class="phead"><h3>Evolución mensual</h3><small>por mes de albarán</small></div><div id="cMes"></div></div>
+    </div>
+    <div class="panel">
+      <div class="phead"><h3>Transporte × provincia</h3><small>Pulsa una celda para ver las incidencias</small></div>
+      <div class="scroll" id="mx"></div>
+    </div>
+  </section>
+
+  <section class="view" id="v-incidencias" hidden>
+    <div class="toolbar">
+      <input type="search" id="q" class="grow" placeholder="Buscar incidencia, cliente, artículo…" aria-label="Buscar">
+      <select id="fTrans" aria-label="Transporte"></select>
+      <select id="fProv" aria-label="Provincia"></select>
+      <select id="fFam" aria-label="Familia"></select>
+      <select id="fTipo" aria-label="Tipo"><option value="">Golpe y pérdida</option><option>Golpe</option><option>Pérdida</option></select>
+    </div>
+    <div class="toolbar">
+      <div class="fchips" id="chips"></div>
+      <span class="muted" id="incCount" style="margin-right:auto"></span>
+      <button class="btn primary" id="btnNew">Nueva incidencia</button>
+      <label class="btn" for="fileIn" tabindex="0">Importar Excel…</label>
+      <input type="file" id="fileIn" accept=".xlsx,.xls,.xlsm,.csv" hidden>
+      <button class="btn" id="btnExport">Exportar Excel</button>
+    </div>
+    <div class="panel" style="padding:0">
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Fecha albarán</th><th>Incidencia</th><th>Cliente</th><th>Provincia</th><th>Transporte</th><th>Artículo golpeado</th><th>Familia + modelo</th><th>Tipo</th></tr></thead>
+          <tbody id="tb"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="tbEmpty" hidden>No hay incidencias con estos filtros en el periodo elegido.</div>
+    </div>
+  </section>
+
+  <section class="view" id="v-reglas" hidden>
+    <div class="help">
+      <h2>Normalización</h2>
+      <p>El Excel trae transportes y provincias escritos de muchas formas (<code>TRANSP. MEDITERR. EXPRES, S.L.</code> y <code>mediterraneo</code>, <code>VIGO</code> y <code>Pontevedra</code>…). Estas reglas los agrupan. Una regla por línea con el formato <code>TEXTO = VALOR</code>; mayúsculas y acentos dan igual. Las líneas que empiezan por <code>#</code> se ignoran.</p>
+      <p><b>Transporte</b>: si el texto original <i>contiene</i> el patrón. <b>Provincia</b>: si el texto original <i>es</i> la localidad; si no hay regla se usa tal cual. <b>Familia + modelo</b>: gana el patrón que aparece antes en la descripción del artículo; sin coincidencia queda como <span class="tag otros">OTROS</span>. En cada incidencia puedes fijar un valor a mano que tiene prioridad sobre las reglas.</p>
+    </div>
+    <div class="panel" id="unresPanel"></div>
+    <div class="rules">
+      <label class="f">Transporte<textarea id="rTrans" spellcheck="false"></textarea></label>
+      <label class="f">Localidad / provincia<textarea id="rProv" spellcheck="false"></textarea></label>
+      <label class="f">Familia + modelo<textarea id="rFam" spellcheck="false"></textarea></label>
+    </div>
+    <div class="toolbar"><button class="btn primary" id="btnRules">Guardar reglas</button><button class="btn" id="btnRulesReset">Restaurar reglas iniciales</button></div>
+  </section>
+</main>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-labelledby="edTitle">
+  <header><h2 id="edTitle">Incidencia</h2><button class="btn" id="edClose">Cerrar</button></header>
+  <form class="body" id="edForm" novalidate>
+    <fieldset>
+      <legend>Incidencia</legend>
+      <label class="f">Incidencia (su número)<input type="text" id="e_incidencia"></label>
+      <label class="f">Fecha albarán *<input type="date" id="e_fechaAlb"></label>
+      <label class="f wide">Artículo(s) golpeado(s) *<textarea id="e_articulo" rows="3"></textarea></label>
+    </fieldset>
+    <fieldset>
+      <legend>Cliente y envío</legend>
+      <label class="f wide">Nombre cliente<input type="text" id="e_cliente"></label>
+      <label class="f">Cód. cliente<input type="text" id="e_codCliente"></label>
+      <label class="f">Provincia / localidad<input type="text" id="e_provOrig"></label>
+      <label class="f">Transporte<input type="text" id="e_transOrig"></label>
+      <label class="f">Serie<input type="text" id="e_serie"></label>
+      <label class="f">Número<input type="text" id="e_numero"></label>
+      <label class="f">Fecha documento<input type="date" id="e_fecha"></label>
+    </fieldset>
+    <fieldset>
+      <legend>Clasificación</legend>
+      <label class="f wide">Familia + modelo<input type="text" id="e_familia" list="famList"></label>
+      <label class="f">Provincia normalizada<input type="text" id="e_provincia" list="provList"></label>
+      <label class="f">Transporte normalizado<input type="text" id="e_transporte" list="transList"></label>
+      <label class="f">Tipo<select id="e_tipo"><option value="">Automático</option><option>Golpe</option><option>Pérdida</option></select></label>
+      <div class="calc" id="edCalc"></div>
+      <label class="f wide">Observaciones<textarea id="e_obs" rows="2"></textarea></label>
+    </fieldset>
+    <div class="err" id="edErr"></div>
+    <datalist id="famList"></datalist><datalist id="provList"></datalist><datalist id="transList"></datalist>
+  </form>
+  <footer><button class="btn danger" id="edDel" type="button">Eliminar</button><span class="sp"></span><button class="btn" id="edCancel" type="button">Cancelar</button><button class="btn primary" id="edSave" type="button">Guardar</button></footer>
+</aside>
+<div class="tip" id="tip" hidden></div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(function(){
+const SAMPLE=[
+{"serie": "1", "numero": 101702, "fecha": "2026-06-17", "codCliente": "16752", "cliente": "HIJOS DE MUÑIZ BOIRO,S.L.", "provOrig": "BOIRO (BOIRO)", "transOrig": "TRANSP. MEDITERR. EXPRES, S.L.", "incidencia": "INC. MARRA KESA (28/05)", "fechaAlb": "2026-05-28", "articulo": "ESTRUCTURA PARA LA MESITA TOP 2 CAJONES DE 60X36X40 MOD. MT03"},
+{"serie": "1", "numero": 101699, "fecha": "2026-06-12", "codCliente": "9025", "cliente": "MUEBLES OLIVER C.B.", "provOrig": "CAMPOS", "transOrig": "ERCHIGA LOGISTICA, S.L.", "incidencia": "INC. SES COVETES (25/05)", "fechaAlb": "2026-05-25", "articulo": "ESTRUCTURA PARA MESITA TOP 1 CAJÓN DE 60X20X40 LACA"},
+{"serie": "", "numero": "", "fecha": "2026-06-01", "codCliente": "", "cliente": "muebles miguel", "provOrig": "valencia", "transOrig": "negredo", "incidencia": "", "fechaAlb": "2026-05-11", "articulo": "LATERAL IZQUIERDO DEL CIERRE MOD. 4313 DE 124X124X43 PARA UN ARLO DE 120X120X42"},
+{"serie": "1", "numero": 101703, "fecha": "2026-06-19", "codCliente": "35161", "cliente": "MUEBLES D`STILO S.A", "provOrig": "VIGO", "transOrig": "TRANSP. MEDITERR. EXPRES, S.L.", "incidencia": "INC. 7397-9 Y 9287-6", "fechaAlb": "2026-05-08", "articulo": "LATERAL DERECHO DEL SIFONIER AIRE 6 CAJONES DE 62X116X40 MOD. MA07"},
+{"serie": "1", "numero": 101705, "fecha": "2026-06-19", "codCliente": "10524", "cliente": "MUEBLES NOVELLA S.L.", "provOrig": "LEIOA", "transOrig": "MRW  -  TRANSPORTES", "incidencia": "INC. SH43972 (04/05)", "fechaAlb": "2026-05-04", "articulo": "PATA METALICA CILINDRICA ARIN TEIDE (TEXTURIZADO OSCURO) PARA FONDO 42CM"},
+{"serie": "", "numero": "", "fecha": "2026-06-01", "codCliente": "", "cliente": "MUEBLES ALBERTO S.L.", "provOrig": "a coruña", "transOrig": "mediterraneo", "incidencia": "", "fechaAlb": "2026-05-04", "articulo": "CABEZAL FREE PARA SOMIER DE 150 Y MESITAS DE 60, 285x120x7 / MESITA DARA 1 CAJON 60X20X40 NOGAL"},
+{"serie": "1", "numero": 101701, "fecha": "2026-06-16", "codCliente": "29156", "cliente": "DECOPLO S.L.", "provOrig": "SAN AGUSTIN DE GUADALIX", "transOrig": "TRANSP. MEDITERR. EXPRES, S.L.", "incidencia": "INC. 22927 MARIO (30/04)", "fechaAlb": "2026-04-30", "articulo": "AMBOS COSTADOS DEL MUEBLE FUNCIONAL ADAMS DE 104X84X30"},
+{"serie": "1", "numero": 101688, "fecha": "2026-05-13", "codCliente": "35161", "cliente": "MUEBLES D`STILO S.A", "provOrig": "Pontevedra", "transOrig": "mediterraneo", "incidencia": "INC. 6740-7", "fechaAlb": "2026-04-27", "articulo": "CABEZAL FREE PARA SOMIER DE 180 Y MESITAS DE 60 DE 295X120X7"},
+{"serie": "1", "numero": 101704, "fecha": "2026-06-19", "codCliente": "18902", "cliente": "VIKAMA COLCHONES Y MUEBLES S.L.", "provOrig": "Villanueva De La Jara", "transOrig": "TRANSP. MEDITERR. EXPRES, S.L.", "incidencia": "INC. NOELIA (13/04)", "fechaAlb": "2026-04-13", "articulo": "MESITA TOP 2 CAJONES 50X36X40 LACA"},
+{"serie": "1", "numero": 101692, "fecha": "2026-05-18", "codCliente": "48025", "cliente": "LUIS CARLOS ALLO MONREAL", "provOrig": "zaragoza", "transOrig": "negredo", "incidencia": "INC. PURIFICACION", "fechaAlb": "2026-04-10", "articulo": "ESTANTE INTERIOR DEL MOD. 3547 METIS DE 3 PUERTAS 120X120X42"},
+{"serie": "1", "numero": 101685, "fecha": "2026-05-08", "codCliente": "1236", "cliente": "FILLS DEL MARQUES EL DELS MOBLES S.L", "provOrig": "Alicante", "transOrig": "mediterraneo", "incidencia": "INC. KIRSTEN", "fechaAlb": "2026-04-10", "articulo": "CIERRE INGLETADO MOLDURADO 274x38x43 LACADO"},
+{"serie": "1", "numero": 101677, "fecha": "2026-04-20", "codCliente": "31437", "cliente": "MUEBLES LAURA S.L.", "provOrig": "Murcia", "transOrig": "mediterraneo", "incidencia": "INC. ANA SEGURA", "fechaAlb": "2026-04-02", "articulo": "PIECERA PARA LA BAÑERA VOLADA MOD. BV01 DE 189X20X198 LACA"},
+{"serie": "5.1", "numero": 500140, "fecha": "2026-05-12", "codCliente": "48550", "cliente": "MUEBLES NEBRA S.L.", "provOrig": "Zaragoza", "transOrig": "negredo", "incidencia": "INC. 76034-MARTINEZ", "fechaAlb": "2026-03-31", "articulo": "MESITA AIRE 1 CAJON 62X28X40 CHAPA ROBLE FRENTE LACA"},
+{"serie": "", "numero": "", "fecha": "2026-06-04", "codCliente": "", "cliente": "MUEBLES Y DECORACION TOMUMA, S.L.", "provOrig": "valencia", "transOrig": "valdivia", "incidencia": "", "fechaAlb": "2026-03-27", "articulo": "PUERTA BATIENTE PAA EL MÓD ARLO AR11 DE 60X120X42 LACA / ESTANTE INTERIOR PARA EL ARLO AR11 DE 60X120X42 LACA / LATERAL PARA EL MOD AR11 DE 60X120X42"},
+{"serie": "1", "numero": 101673, "fecha": "2026-04-17", "codCliente": "45047", "cliente": "LARA ONLINE S.L.", "provOrig": "Valencia", "transOrig": "mediterraneo", "incidencia": "INC. 4535", "fechaAlb": "2026-03-26", "articulo": "MODULO HORIZONTAL 150X34X42 LACA"},
+{"serie": "1", "numero": 101679, "fecha": "2026-04-22", "codCliente": "26054", "cliente": "MOBLES BESSO S.L.", "provOrig": "Lleida", "transOrig": "valdivia", "incidencia": "INC. SORAYA MALAGON", "fechaAlb": "2026-03-24", "articulo": "ESTANTE ERIA CON SOPORTE PARED 70X4X25 CHAPA"},
+{"serie": "5.1", "numero": 500136, "fecha": "2026-02-06", "codCliente": "45433", "cliente": "MUEBLES Y DECORACION LARA S.L.", "provOrig": "Valencia", "transOrig": "mediterraneo", "incidencia": "INC. B-30065 MATEO", "fechaAlb": "2026-03-17", "articulo": "COSTADO GRAFITO MATE DEL CIERRE MOD.4349 DE 304X38X43"},
+{"serie": "1", "numero": 101660, "fecha": "2026-03-25", "codCliente": "29899", "cliente": "MIGUEL ANGEL SANCHEZ ESCALONILLA", "provOrig": "Madrid", "transOrig": "mediterraneo", "incidencia": "INC. AURELIANO", "fechaAlb": "2026-03-13", "articulo": "MESITA DARA 3 CAJONES 55X55X40 BLANCO BRILLO"},
+{"serie": "1", "numero": 101691, "fecha": "2026-05-14", "codCliente": "17516", "cliente": "MUEBLES MESA DE ALMEDINILLA S.L.", "provOrig": "Córdoba", "transOrig": "sureste", "incidencia": "INC. RAUL MARTIN MERIDA", "fechaAlb": "2026-03-10", "articulo": "MESITA TOP 1 CAJON 60X20X40 LACA"},
+{"serie": "1", "numero": 101671, "fecha": "2026-04-09", "codCliente": "49028", "cliente": "ELLEMORE DECORACION S.L.", "provOrig": "Las Palmas", "transOrig": "erchiga", "incidencia": "INC. 156", "fechaAlb": "2026-03-05", "articulo": "MODULO DE CAJON CON PUSH DE 110x20x30 EN LACA"},
+{"serie": "1", "numero": 101669, "fecha": "2026-04-07", "codCliente": "1128", "cliente": "COELLO ORTS S.L.", "provOrig": "Alicante", "transOrig": "mediterraneo", "incidencia": "INC. EXPO", "fechaAlb": "2026-03-05", "articulo": "CAJON VISON MATE PARA SIFONIER CUBE 60X103X40"},
+{"serie": "1", "numero": 101661, "fecha": "2026-03-25", "codCliente": "48025", "cliente": "LUIS CARLOS ALLO MONREAL", "provOrig": "Zaragoza", "transOrig": "negredo", "incidencia": "INC. DAVID", "fechaAlb": "2026-03-05", "articulo": "MESITA AIRE 1 CAJON 62X28X40 LACA"},
+{"serie": "1", "numero": 101683, "fecha": "2026-05-06", "codCliente": "45047", "cliente": "LARA ONLINE S.L.", "provOrig": "Valencia", "transOrig": "mediterraneo", "incidencia": "INC. 3827 - ALBA", "fechaAlb": "2026-03-02", "articulo": "PIERDE LA AGENCIA MODULO HORIZONTAL 150X34X42 LACA"},
+{"serie": "5.1", "numero": 500142, "fecha": "2026-05-14", "codCliente": "29522", "cliente": "MOBEL K 6 C.B.", "provOrig": "Madrid", "transOrig": "mediterraneo", "incidencia": "INC. 825411", "fechaAlb": "2026-02-27", "articulo": "PLAFON 2 DEL CABEZAL FREE PARA SOMIER DE 135 Y MESITAS DE 50 DE 250X120X7"},
+{"serie": "5.1", "numero": 500133, "fecha": "2026-01-23", "codCliente": "13522", "cliente": "MADERAS Y BRICOLAJES PALMONES S.L.", "provOrig": "Cádiz", "transOrig": "sureste", "incidencia": "INC. LOLA Y MIGUEL", "fechaAlb": "2026-02-27", "articulo": "CABEZAL ASYMETRIC CON ENMARCADO Y TRASERA PARA SOMIER DE 150 Y MESITAS DE 60 , 285X120X5 LACA"},
+{"serie": "1", "numero": 101663, "fecha": "2026-03-25", "codCliente": "16023", "cliente": "MARIA DEL CARMEN LANDERIA BARBEIRA", "provOrig": "galicia", "transOrig": "mediterraneo", "incidencia": "INC. MARIA TERESA FERNAND", "fechaAlb": "2026-02-27", "articulo": "pierde agencia cabezal soa"},
+{"serie": "1", "numero": 101645, "fecha": "2026-03-12", "codCliente": "1042", "cliente": "CALMA DELUXE S.L.", "provOrig": "Alicante", "transOrig": "mediterraneo", "incidencia": "INC. EXPO", "fechaAlb": "2026-02-27", "articulo": "TAPA Y COSTADOS DEL CIERRE MOD. 4349 DE 304X38X43, MESA CENTRO NASH CON TAPA FINA DE 2 CM BISELADA Ø60X37 LACA"},
+{"serie": "1", "numero": 101700, "fecha": "2026-06-16", "codCliente": "18004", "cliente": "MUEBLES ALGARRA,C.B.", "provOrig": "SAN LORENZO DE LA PARRILLA", "transOrig": "TRANSP. MEDITERR. EXPRES, S.L.", "incidencia": "INC. EXPO (24/02)", "fechaAlb": "2026-02-24", "articulo": "PUERTA ABATIBLE PARA MOD. 3344 150X34X42 GRAFITO MATE"},
+{"serie": "1", "numero": 101654, "fecha": "2026-03-23", "codCliente": "1044", "cliente": "MUEBLES SERAFIN S.L.", "provOrig": "Alicante", "transOrig": "mediterraneo", "incidencia": "INC. 26108", "fechaAlb": "2026-02-19", "articulo": "TAPA 300X1,6X42 LACADO"},
+{"serie": "1", "numero": 101646, "fecha": "2026-03-13", "codCliente": "16010", "cliente": "MUEBLES ALBERTO S.L.", "provOrig": "galicia", "transOrig": "mediterraneo", "incidencia": "", "fechaAlb": "2026-02-18", "articulo": "PIERDE AGENCIA PATA METALICAS NEGRO MATE PARA FONDO 42CM"},
+{"serie": "5.1", "numero": 500137, "fecha": "2026-03-24", "codCliente": "16871", "cliente": "MUEBLES ULLA S.L.", "provOrig": "A Coruña", "transOrig": "mediterraneo", "incidencia": "INC. JAVIER VILELA", "fechaAlb": "2026-02-16", "articulo": "2 PUERTAS PARA EL BAJO ARLO MOD. AR03 DE 123X62X42"},
+{"serie": "1", "numero": 101667, "fecha": "2026-03-30", "codCliente": "29156", "cliente": "DECOPLO S.L.", "provOrig": "Madrid", "transOrig": "mediterraneo", "incidencia": "INC. 23751", "fechaAlb": "2026-02-13", "articulo": "MARCO ESPEJO VESTIDOR VISON MATE 78X200"},
+{"serie": "1", "numero": 101647, "fecha": "2026-03-13", "codCliente": "29156", "cliente": "DECOPLO S.L.", "provOrig": "Madrid", "transOrig": "mediterraneo", "incidencia": "INC. 23751", "fechaAlb": "2026-02-11", "articulo": "MARCO ESPEJO VESTIDOR VISON MATE 78X200"},
+{"serie": "1", "numero": 101632, "fecha": "2026-02-19", "codCliente": "29156", "cliente": "DECOPLO S.L.", "provOrig": "Madrid", "transOrig": "mediterraneo", "incidencia": "INC. 23751", "fechaAlb": "2026-02-11", "articulo": "MARCO ESPEJO VESTIDOR VISON MATE 78X200"},
+{"serie": "1", "numero": 101681, "fecha": "2026-04-27", "codCliente": "1236", "cliente": "FILLS DEL MARQUES EL DELS MOBLES S.L", "provOrig": "Alicante", "transOrig": "mediterraneo", "incidencia": "INC. LAOT", "fechaAlb": "2026-02-09", "articulo": "CIERRE INGLETADO MOLDURADO 304x38x43 LACADO"},
+{"serie": "1", "numero": 101680, "fecha": "2026-04-22", "codCliente": "1042", "cliente": "CALMA DELUXE S.L.", "provOrig": "Alicante", "transOrig": "mediterraneo", "incidencia": "INC. MAITE", "fechaAlb": "2026-02-09", "articulo": "mesita perdida"},
+{"serie": "1", "numero": 101650, "fecha": "2026-03-17", "codCliente": "35161", "cliente": "MUEBLES D`STILO S.A", "provOrig": "Pontevedra", "transOrig": "mediterraneo", "incidencia": "INC. 9852-9", "fechaAlb": "2026-02-09", "articulo": "3 PUERTAS PARA EL APARADOR DANA MOD. 3546 DE 120X60X30"},
+{"serie": "1", "numero": 101633, "fecha": "2026-02-24", "codCliente": "16023", "cliente": "MARIA DEL CARMEN LANDERIA BARBEIRA", "provOrig": "galicia", "transOrig": "mediterraneo", "incidencia": "INC. SUSANA PUMARES", "fechaAlb": "2026-02-09", "articulo": "PATA METALICA ALTA PARA MESITA DARA MOD.MD11R DE 60x12x40 VISON MATE"},
+{"serie": "1", "numero": 101642, "fecha": "2026-03-09", "codCliente": "31676", "cliente": "MUEBLES PACO CABALLERO S.L.", "provOrig": "Murcia", "transOrig": "mediterraneo", "incidencia": "INC. 230942", "fechaAlb": "2026-02-06", "articulo": "2 MODULO HORIZONTAL 1 CAJON 60x34x42 VISON MATE- CON LA TAPA POR DENTRO, CIERRE INGLETADO MOLDURADO 214x38x43 VISON MATE"},
+{"serie": "1", "numero": 101639, "fecha": "2026-03-06", "codCliente": "35993", "cliente": "ULLA MOBILIARIO S.L.", "provOrig": "A Coruña", "transOrig": "mediterraneo", "incidencia": "INC. EXPO-FERIA", "fechaAlb": "2026-02-06", "articulo": "CIERRE INGLETADO MOLDURADO 274x38x43 LACADO"},
+{"serie": "", "numero": "", "fecha": "2026-06-03", "codCliente": "", "cliente": "hijos de muñiz boiro", "provOrig": "a coruña", "transOrig": "mediterraneo", "incidencia": "", "fechaAlb": "2026-01-19", "articulo": "MODULO HORIZONTAL DIAFANO 30X34X42 LACA"},
+{"serie": "5.1", "numero": 500144, "fecha": "2026-06-01", "codCliente": "45108", "cliente": "MUEBLES CASANOVA S.L.", "provOrig": "Sueca", "transOrig": "TRANSP. MEDITERR. EXPRES, S.L.", "incidencia": "INC. EE-EXPO21 (09/12/25)", "fechaAlb": "2025-12-09", "articulo": "ESTANTE ERIA CON SOPORTE PARED 120X4X30"},
+{"serie": "1", "numero": 101698, "fecha": "2026-06-09", "codCliente": "44231", "cliente": "MUEBLES FLOVIC S.A.", "provOrig": "CUBAS DE LA SAGRA", "transOrig": "TRANSP. MEDITERR. EXPRES, S.L.", "incidencia": "INC. 66893 (11/11/25)", "fechaAlb": "2025-11-11", "articulo": "PUERTA PARA MÓDULO HORIZONTAL 3304 DE 150X34X30 MOKA MATE"},
+{"serie": "5.1", "numero": 500134, "fecha": "2026-01-26", "codCliente": "16030", "cliente": "MARIA BELEN FUENTES BLANCO", "provOrig": "galicia", "transOrig": "mediterraneo", "incidencia": "INC. BEATRIZ CORRAL", "fechaAlb": "2026-01-30", "articulo": "SINFONIER AIRE 6 CAJONES 62X116X40 LACA FRENTE CHAPA"},
+{"serie": "1", "numero": 101666, "fecha": "2026-03-30", "codCliente": "1082", "cliente": "JUAN BAUTISTA BALLESTER GARCIA", "provOrig": "Alicante", "transOrig": "mediterraneo", "incidencia": "INC. EXPO", "fechaAlb": "2026-01-30", "articulo": "2 MODULO HORIZONTAL 180X34X42 LACA, CIERRE INGLETADO MOLDURADO 274x38x43 LACADO, PANEL TV 180x110x2+3 DE REGRUESO, GRIS CALIZA"},
+{"serie": "1", "numero": 101637, "fecha": "2026-03-04", "codCliente": "35161", "cliente": "MUEBLES D`STILO S.A", "provOrig": "Pontevedra", "transOrig": "mediterraneo", "incidencia": "INC. 9314-7", "fechaAlb": "2026-01-30", "articulo": "PARTE DE LA CABEZA DE LA BAÑERA VOLDA DE 150X190"},
+{"serie": "1", "numero": 101636, "fecha": "2026-03-02", "codCliente": "29361", "cliente": "INTERIORISMO Y DECORACION EL DIVAN S.L.", "provOrig": "madrid", "transOrig": "mediterraneo", "incidencia": "INC. 3414.1", "fechaAlb": "2026-01-29", "articulo": "LATERAL130X4X30 LACADO"},
+{"serie": "5.1", "numero": 500139, "fecha": "2026-04-09", "codCliente": "45047", "cliente": "LARA ONLINE S.L.", "provOrig": "Valencia", "transOrig": "mediterraneo", "incidencia": "INC. 4533-ALBA", "fechaAlb": "2026-01-27", "articulo": "PANEL 1 DEL CABEZAL FREE MOD. CFR09 PARA SOMIER DE 150 Y MESITAS DE 60, 285X120X7"},
+{"serie": "5.1", "numero": 500138, "fecha": "2026-04-07", "codCliente": "45433", "cliente": "MUEBLES Y DECORACION LARA S.L.", "provOrig": "Valencia", "transOrig": "mediterraneo", "incidencia": "INC. 0/5009", "fechaAlb": "2026-01-21", "articulo": "MESITA CUBE 1 CAJON 50X20X40 CHAPA"},
+{"serie": "1", "numero": 101689, "fecha": "2026-05-13", "codCliente": "44233", "cliente": "FLOVIC HOLDING S.L.", "provOrig": "Madrid", "transOrig": "mediterraneo", "incidencia": "INC. 12252 NURIA", "fechaAlb": "2026-01-19", "articulo": "TAPA PARA PARA CIERRE DE 220X81X41"},
+{"serie": "1", "numero": 101635, "fecha": "2026-02-25", "codCliente": "49015", "cliente": "LOOK COCINAS S.L.U.", "provOrig": "canarias", "transOrig": "erchiga", "incidencia": "INC. ANTONIO ARGENTIERI", "fechaAlb": "2026-01-19", "articulo": "CIERRE INGLETADO MOLDURADO 274x24x43 GRIS ESPECIAL"},
+{"serie": "1", "numero": 101675, "fecha": "2026-04-20", "codCliente": "2681", "cliente": "PEPASECTOR20 S.L.", "provOrig": "almeria", "transOrig": "sureste", "incidencia": "INC. 0251011", "fechaAlb": "2026-01-13", "articulo": "ESTRUCTURA PARA MODULO HORIZONTAL 150X34X42 LACA"},
+{"serie": "1", "numero": 101640, "fecha": "2026-03-06", "codCliente": "45096", "cliente": "MUEBLES Y AMBIENTES TORRENT SLU", "provOrig": "Valencia", "transOrig": "mediterraneo", "incidencia": "50.741-A", "fechaAlb": "2026-01-13", "articulo": "LATERAL IZQUIERDO DEL MOD BA01"},
+{"serie": "5.1", "numero": 500132, "fecha": "2026-01-22", "codCliente": "44233", "cliente": "FLOVIC HOLDING S.L.", "provOrig": "Madrid", "transOrig": "mediterraneo", "incidencia": "INC. 10649 SONSOLES", "fechaAlb": "2026-01-08", "articulo": "CAJON BLANCO MATE DEL MOD. 451 DE 80X20X35"},
+{"serie": "1", "numero": 101630, "fecha": "2026-02-12", "codCliente": "17022", "cliente": "MUEBLES AVILA E HIJOS S.L.", "provOrig": "cordoba", "transOrig": "sureste", "incidencia": "INC. EE-CNEXPO06", "fechaAlb": "2025-12-19", "articulo": "MESITA CUBE 1 CAJON 50X20X40 LACA"},
+{"serie": "1", "numero": 101686, "fecha": "2026-05-13", "codCliente": "2025", "cliente": "LINEA NUEVE BUSINESS S.L.", "provOrig": "Almería", "transOrig": "sureste", "incidencia": "INC. CNEXPO01", "fechaAlb": "2025-12-11", "articulo": "MODULO HORIZONTAL 2 CAJONES 150x20x33,2 LACA"},
+{"serie": "5.1", "numero": 500141, "fecha": "2026-05-13", "codCliente": "2025", "cliente": "LINEA NUEVE BUSINESS S.L.", "provOrig": "Almería", "transOrig": "sureste", "incidencia": "INC. EE-CNEXPO01", "fechaAlb": "2025-12-11", "articulo": "MESITA CUBE 1 CAJON 50X20X40 LACA"},
+{"serie": "1", "numero": 101687, "fecha": "2026-05-13", "codCliente": "18152", "cliente": "CIFUENTES RUIPEREZ VALENTINA", "provOrig": "cuenca", "transOrig": "negredo", "incidencia": "INC. MARI CARMEN HERRAIZ", "fechaAlb": "2025-12-05", "articulo": "TARIMAS DEL AR01 EN ROBLE HERA"},
+{"serie": "1", "numero": 101676, "fecha": "2026-04-20", "codCliente": "48379", "cliente": "ROLDAN HERNANDEZ MARIA JOSE", "provOrig": "Zaragoza", "transOrig": "negredo", "incidencia": "INC. EE-CNEXPO16", "fechaAlb": "2025-11-04", "articulo": "ESTRUCTURA PARA MODULO HORIZONTAL 150X34X42 LACA"},
+{"serie": "1", "numero": 101648, "fecha": "2026-03-13", "codCliente": "32016", "cliente": "MUEBLES ANSOAIN S.L.", "provOrig": "Navarra", "transOrig": "negredo", "incidencia": "INC. 1000", "fechaAlb": "2025-10-21", "articulo": "SINFONIER ROCK 6 CAJONES 60X108X40 LACA"},
+{"serie": "1", "numero": 101684, "fecha": "2026-05-08", "codCliente": "2234", "cliente": "SIMON FUENTES MOLINA", "provOrig": "almeria", "transOrig": "sureste", "incidencia": "INC. PARRA", "fechaAlb": "2025-09-03", "articulo": "MESITA ROCK 3 CAJONES 60X55X40 LACA"}
+];
+
+const DEFAULT_RULES={
+trans:`MEDITERR = mediterraneo
+ERCHIGA = erchiga
+MRW = MRW
+NEGREDO = negredo
+VALDIVIA = valdivia
+SURESTE = sureste`,
+prov:`# localidad = provincia
+BOIRO = A Coruña
+A CORUÑA = A Coruña
+VIGO = Pontevedra
+CAMPOS = Baleares
+LEIOA = Bizkaia
+SAN AGUSTIN DE GUADALIX = Madrid
+CUBAS DE LA SAGRA = Madrid
+VILLANUEVA DE LA JARA = Cuenca
+SAN LORENZO DE LA PARRILLA = Cuenca
+SUECA = Valencia
+CORDOBA = Córdoba
+ALMERIA = Almería
+CADIZ = Cádiz
+# regiones sin provincia concreta
+GALICIA = Galicia (región)
+CANARIAS = Canarias (región)`,
+fam:`PATA METAL = PATA METÁLICA
+CIERRE = CIERRE
+CABEZAL FREE = CABEZAL FREE
+CABEZAL ASYMETRIC = CABEZAL ASYMETRIC
+CABEZAL SOA = CABEZAL SOA
+CABEZAL = CABEZAL
+MESITA TOP = MESITA TOP
+MESITA AIRE = MESITA AIRE
+MESITA DARA = MESITA DARA
+MESITA CUBE = MESITA CUBE
+MESITA ROCK = MESITA ROCK
+MESITA = MESITA
+SIFONIER AIRE = SINFONIER AIRE
+SINFONIER AIRE = SINFONIER AIRE
+SIFONIER CUBE = SINFONIER CUBE
+SINFONIER CUBE = SINFONIER CUBE
+SINFONIER ROCK = SINFONIER ROCK
+MUEBLE FUNCIONAL ADAMS = MUEBLE FUNCIONAL ADAMS
+METIS = MÓDULO METIS
+BAÑERA VOLADA = BAÑERA VOLADA
+BAÑERA VOLDA = BAÑERA VOLADA
+ARLO = MÓDULO ARLO
+AR01 = MÓDULO ARLO
+MODULO HORIZONTAL = MÓDULO HORIZONTAL
+MODULO DE CAJON CON PUSH = MÓDULO DE CAJÓN CON PUSH
+ESTANTE ERIA = ESTANTE ERIA
+ESPEJO VESTIDOR = ESPEJO VESTIDOR
+APARADOR DANA = APARADOR DANA
+MESA CENTRO NASH = MESA CENTRO NASH
+PANEL TV = PANEL TV`};
+const FIELDS=["serie","numero","fecha","codCliente","cliente","provOrig","transOrig","incidencia","fechaAlb","articulo","familia","provincia","transporte","tipo","obs"];
+
+/* ---------- helpers ---------- */
+const DAY=86400000;
+const $=(s,r)=>(r||document).querySelector(s);
+const $$=(s,r)=>Array.from((r||document).querySelectorAll(s));
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const norm=s=>String(s??"").normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase().replace(/\s+/g," ").trim();
+const parseISO=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(s||"");return m?new Date(+m[1],+m[2]-1,+m[3]):null;};
+const toISO=d=>d?`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`:"";
+const fmt=d=>d?d.toLocaleDateString("es-ES",{day:"2-digit",month:"2-digit",year:"numeric"}):"";
+const today=()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate());};
+const pct=(a,b)=>b?Math.round(a*100/b):0;
+const SMALL=new Set(["DE","DEL","LA","LAS","LOS","EL","Y"]);
+const titleCase=s=>String(s||"").trim().toLowerCase().split(/\s+/).map((w,i)=>i&&SMALL.has(w.toUpperCase())?w:w.charAt(0).toUpperCase()+w.slice(1)).join(" ");
+let toastT;
+function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,3000);}
+
+/* ---------- rules ---------- */
+function parseRules(txt){return String(txt||"").split(/\n/).map(l=>l.trim()).filter(l=>l&&!l.startsWith("#")&&l.includes("=")).map(l=>{const i=l.indexOf("=");return{p:norm(l.slice(0,i)),v:l.slice(i+1).trim()};}).filter(r=>r.p&&r.v);}
+let R={trans:[],prov:[],fam:[]};
+function compileRules(){R={trans:parseRules(state.rules.trans),prov:parseRules(state.rules.prov),fam:parseRules(state.rules.fam)};}
+function autoTrans(raw){const n=norm(raw);if(!n)return"(sin transporte)";for(const r of R.trans)if(n.includes(r.p))return r.v;return String(raw).trim().toLowerCase();}
+function autoProv(raw){const n=norm(raw).replace(/\s*\(.*\)$/,"");if(!n)return"(sin provincia)";for(const r of R.prov)if(n===r.p)return r.v;return titleCase(raw);}
+function autoFam(art){const n=norm(art);let best=null;for(const r of R.fam){const i=n.indexOf(r.p);if(i<0)continue;if(!best||i<best.i||(i===best.i&&r.p.length>best.len))best={i,len:r.p.length,v:r.v};}return best?best.v:"OTROS";}
+function autoTipo(art){return /PIERDE|PERDID|EXTRAVI/.test(norm(art))?"Pérdida":"Golpe";}
+
+/* ---------- state ---------- */
+let state={rows:[],rules:Object.assign({},DEFAULT_RULES)};
+let all=[];
+function derive(r){
+  const o=Object.assign({},r);
+  o.d=parseISO(o.fechaAlb);
+  o.trans=(o.transporte||"").trim()||autoTrans(o.transOrig);
+  o.prov=(o.provincia||"").trim()||autoProv(o.provOrig);
+  o.fam=(o.familia||"").trim().toUpperCase()||autoFam(o.articulo);
+  o.tip=o.tipo||autoTipo(o.articulo);
+  o.region=/\(regi[oó]n\)/i.test(o.prov);
+  o.cli=norm(o.cliente);
+  return o;
+}
+function recompute(){compileRules();all=state.rows.map(derive).sort((a,b)=>(b.d||0)-(a.d||0)||String(b.incidencia).localeCompare(String(a.incidencia)));}
+
+/* ---------- period ---------- */
+let per={p:"mar26",from:"",to:""};
+function range(){
+  const t=today();
+  switch(per.p){
+    case"mar26":return{from:new Date(2026,2,1),to:null};
+    case"feb26":return{from:new Date(2026,1,1),to:null};
+    case"y2026":return{from:new Date(2026,0,1),to:new Date(2026,11,31)};
+    case"d90":return{from:new Date(t.getTime()-90*DAY),to:null};
+    case"custom":return{from:parseISO(per.from),to:parseISO(per.to)};
+    default:return{from:null,to:null};
+  }
+}
+function periodLabel(){const{from,to}=range();if(!from&&!to)return"todo el histórico";if(from&&!to)return"desde "+fmt(from);if(!from)return"hasta "+fmt(to);return fmt(from)+" – "+fmt(to);}
+function inPeriod(o){const{from,to}=range();if(!from&&!to)return true;if(!o.d)return false;if(from&&o.d<from)return false;if(to&&o.d>to)return false;return true;}
+
+/* ---------- storage ---------- */
+const LS="rossmann-golpes-v1";
+let db=null;
+const store={
+  async init(){
+    try{if(window.claude&&window.claude.use)db=await window.claude.use("db");}catch(e){db=null;}
+    if(db){
+      $("#modeNote").textContent="Datos compartidos con el equipo";
+      db.collection("incidencias").onSnapshot(s=>{state.rows=s.docs.map(d=>Object.assign({id:d.id},d.data()));render();},e=>toast("No se pudieron leer los datos: "+(e.message||e.code)));
+      db.doc("config/reglas").onSnapshot(s=>{const d=s.exists&&s.data();if(d){state.rules=Object.assign({},DEFAULT_RULES,d);render(true);}});
+    }else{
+      $("#modeNote").textContent="Datos guardados en este navegador";
+      let saved=null;try{saved=JSON.parse(localStorage.getItem(LS)||"null");}catch(e){}
+      if(saved&&Array.isArray(saved.rows)){state.rows=saved.rows;state.rules=Object.assign({},DEFAULT_RULES,saved.rules||{});}
+      else state.rows=SAMPLE.map((r,i)=>Object.assign({id:"s"+String(i).padStart(3,"0")},r));
+      render(true);
+    }
+  },
+  saveLocal(){try{localStorage.setItem(LS,JSON.stringify(state));}catch(e){}},
+  clean(r){const o={};FIELDS.forEach(k=>{o[k]=r[k]==null?"":String(r[k]);});return o;},
+  newId(){return"i"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);},
+  async put(r){
+    if(!r.id)r.id=this.newId();
+    if(db)await db.collection("incidencias").doc(r.id).set(this.clean(r));
+    else{const i=state.rows.findIndex(x=>x.id===r.id);if(i>=0)state.rows[i]=r;else state.rows.push(r);this.saveLocal();render();}
+  },
+  async del(id){
+    if(db)await db.collection("incidencias").doc(id).delete();
+    else{state.rows=state.rows.filter(x=>x.id!==id);this.saveLocal();render();}
+  },
+  async setRules(rules){
+    if(db)await db.doc("config/reglas").set(rules);
+    else{state.rules=rules;this.saveLocal();render(true);}
+  }
+};
+
+/* ---------- tabs ---------- */
+let tab="resumen";
+function setTab(t){
+  tab=t;
+  $$("nav.tabs button").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===t)));
+  $$("section.view").forEach(s=>s.hidden=s.id!=="v-"+t);
+  try{localStorage.setItem(LS+"-tab",t);}catch(e){}
+}
+$$("nav.tabs button").forEach(b=>b.addEventListener("click",()=>setTab(b.dataset.tab)));
+
+/* ---------- render ---------- */
+function countBy(rows,key){const m=new Map();rows.forEach(r=>m.set(r[key],(m.get(r[key])||0)+1));return[...m].sort((a,b)=>b[1]-a[1]||String(a[0]).localeCompare(String(b[0]),"es"));}
+let rows=[];
+function render(rulesToo){
+  recompute();
+  rows=all.filter(inPeriod);
+  $("#cntInc").textContent=rows.length;
+  renderResumen();renderInc();
+  if(rulesToo)renderRules();else renderUnres();
+  fillLists();
+}
+
+const expanded={};
+function bars(el,key,list,limit){
+  if(!list.length){el.innerHTML=`<div class="empty">Sin datos en el periodo</div>`;return;}
+  const max=list[0][1];const open=expanded[key];const shown=open?list:list.slice(0,limit);
+  el.innerHTML=`<div class="bars">${shown.map(([k,n])=>{const reg=key==="prov"&&/\(regi[oó]n\)/i.test(k);const lbl=reg?k.replace(/\s*\(regi[oó]n\)/i,""):k;return `<button class="bar${reg?" region":""}${key==="fam"&&k==="OTROS"?" otros":""}" data-f="${key}" data-v="${esc(k)}" data-tip="${esc(lbl)}: ${n} incidencia${n===1?"":"s"} · ${pct(n,rows.length)} % del periodo" aria-label="${esc(lbl)}: ${n}"><span class="k">${esc(lbl)}</span><span class="tr"><span class="fill" style="width:${(n/max*100).toFixed(1)}%"></span></span><span class="v">${n}</span></button>`;}).join("")}</div>${list.length>limit?`<button class="more" data-more="${key}">${open?"Mostrar menos":"Mostrar las "+list.length}</button>`:""}`;
+}
+function renderResumen(){
+  const n=rows.length, golpes=rows.filter(r=>r.tip==="Golpe").length;
+  const tr=countBy(rows,"trans"), fam=countBy(rows.filter(r=>r.fam!=="OTROS"),"fam"), pv=countBy(rows,"prov");
+  const cl=countBy(rows.filter(r=>r.cli),"cli").filter(x=>x[1]>1);
+  const k=(cls,val,l,s,big)=>`<div class="kpi ${cls}"><span class="${big?"n":"t"}">${val}</span><span class="l">${l}</span>${s?`<span class="s">${s}</span>`:""}</div>`;
+  $("#kpis").innerHTML=[
+    k("",n,"Incidencias",periodLabel(),1),
+    k("",golpes,"Golpes",n?pct(golpes,n)+" % del total":"",1),
+    k(n-golpes?"alert":"",n-golpes,"Pérdidas de agencia","bultos extraviados",1),
+    k("",tr[0]?esc(tr[0][0]):"—","Transporte con más incidencias",tr[0]?`${tr[0][1]} · ${pct(tr[0][1],n)} %`:""),
+    k("",fam[0]?esc(fam[0][0]):"—","Familia más golpeada",fam[0]?`${fam[0][1]} incidencia${fam[0][1]===1?"":"s"}`:""),
+    k("",pv.length,"Provincias afectadas",pv[0]?`más: ${esc(pv[0][0].replace(/\s*\(regi[oó]n\)/i,""))} (${pv[0][1]})`:"",1),
+    k("",cl.length,"Clientes con 2+ incidencias",cl[0]?esc(all.find(r=>r.cli===cl[0][0]).cliente)+` (${cl[0][1]})`:"",1)
+  ].join("");
+  bars($("#bFam"),"fam",countBy(rows,"fam"),10);
+  bars($("#bTrans"),"trans",tr,10);
+  bars($("#bProv"),"prov",pv,10);
+  // months
+  const ds=rows.filter(r=>r.d).map(r=>r.d);
+  if(!ds.length){$("#cMes").innerHTML=`<div class="empty">Sin datos en el periodo</div>`;}
+  else{
+    const{from,to}=range();
+    let a=from&&from>new Date(2000,0,1)?from:new Date(Math.min(...ds)), b=new Date(Math.max(...ds));
+    if(to&&to<b)b=to;
+    const ms=[];for(let d=new Date(a.getFullYear(),a.getMonth(),1);d<=b&&ms.length<36;d=new Date(d.getFullYear(),d.getMonth()+1,1))ms.push(d);
+    const cnt=ms.map(m=>rows.filter(r=>r.d&&r.d.getFullYear()===m.getFullYear()&&r.d.getMonth()===m.getMonth()).length);
+    const mx=Math.max(1,...cnt);
+    const ml=m=>m.toLocaleDateString("es-ES",{month:"short"}).replace(".","")+" "+String(m.getFullYear()).slice(2);
+    const mlong=m=>m.toLocaleDateString("es-ES",{month:"long",year:"numeric"});
+    $("#cMes").innerHTML=`<div class="cols">${ms.map((m,i)=>`<div class="col" data-tip="${mlong(m)}: ${cnt[i]} incidencia${cnt[i]===1?"":"s"}"><span class="v">${cnt[i]}</span><span class="c" style="height:${(cnt[i]/mx*100).toFixed(1)}%"></span></div>`).join("")}</div><div class="colx">${ms.map(m=>`<span>${ml(m)}</span>`).join("")}</div>`;
+  }
+  // matrix
+  const provs=pv.map(x=>x[0]);
+  if(!tr.length){$("#mx").innerHTML=`<div class="empty">Sin datos en el periodo</div>`;return;}
+  const cell=(t,p)=>rows.filter(r=>r.trans===t&&r.prov===p).length;
+  let mmax=1;const grid=tr.map(([t])=>provs.map(p=>{const c=cell(t,p);mmax=Math.max(mmax,c);return c;}));
+  const bg=c=>{const w=Math.round(14+76*c/mmax);return`background:color-mix(in oklab, var(--data) ${w}%, var(--surface));${w>52?"color:var(--data-ink)":""}`;};
+  $("#mx").innerHTML=`<table class="matrix"><thead><tr><th></th>${provs.map(p=>`<th class="p">${esc(p.replace(/\s*\(regi[oó]n\)/i," (reg.)"))}</th>`).join("")}<th class="tot">Total</th></tr></thead><tbody>${tr.map(([t,tot],i)=>`<tr><th>${esc(t)}</th>${grid[i].map((c,j)=>c?`<td class="h" style="${bg(c)}" data-cell="${i}|${j}" data-tip="${esc(t)} → ${esc(provs[j])}: ${c}">${c}</td>`:`<td class="z">·</td>`).join("")}<td class="tot mono">${tot}</td></tr>`).join("")}</tbody><tfoot><tr><th class="tot">Total</th>${pv.map(x=>`<td class="tot mono">${x[1]}</td>`).join("")}<td class="tot mono">${rows.length}</td></tr></tfoot></table>`;
+  $("#mx").dataset.t=JSON.stringify(tr.map(x=>x[0]));$("#mx").dataset.p=JSON.stringify(provs);
+}
+
+/* ---------- incidencias ---------- */
+const F={q:"",trans:"",prov:"",fam:"",tipo:""};
+function fillSel(id,list,label){const el=$(id);const cur=el.value;el.innerHTML=`<option value="">${label}</option>`+list.map(([k,n])=>`<option value="${esc(k)}">${esc(k)} (${n})</option>`).join("");el.value=list.some(x=>x[0]===cur)?cur:"";}
+function filteredRows(){
+  const q=norm(F.q);
+  return rows.filter(r=>(!F.trans||r.trans===F.trans)&&(!F.prov||r.prov===F.prov)&&(!F.fam||r.fam===F.fam)&&(!F.tipo||r.tip===F.tipo)&&(!q||norm([r.incidencia,r.cliente,r.articulo,r.provOrig,r.transOrig,r.fam,r.numero,r.codCliente,r.obs].join(" ")).includes(q)));
+}
+function renderInc(){
+  fillSel("#fTrans",countBy(rows,"trans"),"Todos los transportes");
+  fillSel("#fProv",countBy(rows,"prov"),"Todas las provincias");
+  fillSel("#fFam",countBy(rows,"fam"),"Todas las familias");
+  ["trans","prov","fam"].forEach(k=>{const el=$("#f"+k[0].toUpperCase()+k.slice(1));if(F[k]&&el.value!==F[k]){const o=document.createElement("option");o.value=F[k];o.textContent=F[k]+" (0)";el.appendChild(o);}el.value=F[k];});
+  $("#fTipo").value=F.tipo;
+  const list=filteredRows();
+  const names={trans:"Transporte",prov:"Provincia",fam:"Familia",tipo:"Tipo"};
+  $("#chips").innerHTML=Object.keys(names).filter(k=>F[k]).map(k=>`<button class="fchip" data-clear="${k}" aria-label="Quitar filtro ${names[k]}">${names[k]}: <b>${esc(F[k])}</b></button>`).join("");
+  $("#incCount").textContent=`${list.length} de ${rows.length} incidencias · ${periodLabel()}`;
+  $("#tbEmpty").hidden=list.length>0;
+  $("#tb").innerHTML=list.map(r=>{
+    const po=r.provOrig&&norm(r.provOrig)!==norm(r.prov)?`<span class="orig">${esc(r.provOrig)}</span>`:"";
+    const to=r.transOrig&&norm(r.transOrig)!==norm(r.trans)?`<span class="orig">${esc(r.transOrig)}</span>`:"";
+    return `<tr class="click" data-id="${esc(r.id)}" tabindex="0"><td class="nowrap mono">${r.d?fmt(r.d):'<span class="warnc">sin fecha</span>'}</td><td>${r.incidencia?esc(r.incidencia):'<span class="muted">—</span>'}${r.numero?`<span class="orig">${esc(r.serie)} · ${esc(r.numero)}</span>`:""}</td><td>${esc(r.cliente)}${r.codCliente?`<span class="orig">${esc(r.codCliente)}</span>`:""}</td><td class="nowrap${r.region?" warnc":""}">${esc(r.prov)}${po}</td><td class="nowrap">${esc(r.trans)}${to}</td><td class="art">${esc(r.articulo)}</td><td><span class="tag${r.fam==="OTROS"?" otros":""}">${esc(r.fam)}</span></td><td><span class="pill ${r.tip}">${r.tip}</span></td></tr>`;
+  }).join("");
+}
+$("#q").addEventListener("input",e=>{F.q=e.target.value;renderInc();});
+[["#fTrans","trans"],["#fProv","prov"],["#fFam","fam"],["#fTipo","tipo"]].forEach(([s,k])=>$(s).addEventListener("change",e=>{F[k]=e.target.value;renderInc();}));
+$("#chips").addEventListener("click",e=>{const b=e.target.closest("[data-clear]");if(b){F[b.dataset.clear]="";renderInc();}});
+function goFilter(o){Object.assign(F,{trans:"",prov:"",fam:"",tipo:"",q:""},o);$("#q").value="";setTab("incidencias");renderInc();window.scrollTo({top:0});}
+$("#v-resumen").addEventListener("click",e=>{
+  const m=e.target.closest("[data-more]");if(m){expanded[m.dataset.more]=!expanded[m.dataset.more];renderResumen();return;}
+  const b=e.target.closest(".bar");if(b){goFilter({[b.dataset.f]:b.dataset.v});return;}
+  const c=e.target.closest("[data-cell]");if(c){const[i,j]=c.dataset.cell.split("|").map(Number);goFilter({trans:JSON.parse($("#mx").dataset.t)[i],prov:JSON.parse($("#mx").dataset.p)[j]});}
+});
+$("#tb").addEventListener("click",e=>{const tr=e.target.closest("tr[data-id]");if(tr)openEditor(state.rows.find(r=>r.id===tr.dataset.id));});
+$("#tb").addEventListener("keydown",e=>{if(e.key==="Enter"){const tr=e.target.closest("tr[data-id]");if(tr)openEditor(state.rows.find(r=>r.id===tr.dataset.id));}});
+
+/* ---------- tooltip ---------- */
+const tip=$("#tip");
+document.addEventListener("pointermove",e=>{const t=e.target.closest&&e.target.closest("[data-tip]");if(!t||e.pointerType==="touch"){tip.hidden=true;return;}tip.textContent=t.dataset.tip;tip.hidden=false;const w=tip.offsetWidth,h=tip.offsetHeight;let x=e.clientX+14,y=e.clientY-h-10;if(x+w>innerWidth-8)x=e.clientX-w-14;if(y<8)y=e.clientY+18;tip.style.left=x+"px";tip.style.top=y+"px";});
+document.addEventListener("pointerleave",()=>tip.hidden=true);
+
+/* ---------- editor ---------- */
+let cur=null;
+function fillLists(){
+  const u=k=>[...new Set(all.map(r=>r[k]))].sort((a,b)=>String(a).localeCompare(String(b),"es")).map(v=>`<option value="${esc(v)}"></option>`).join("");
+  $("#famList").innerHTML=u("fam");$("#provList").innerHTML=u("prov");$("#transList").innerHTML=u("trans");
+}
+function openEditor(r){
+  cur=r?Object.assign({},r):{fechaAlb:toISO(today())};
+  $("#edTitle").textContent=r?(r.incidencia||"Incidencia"):"Nueva incidencia";
+  FIELDS.forEach(k=>{const el=$("#e_"+k);if(el)el.value=cur[k]??"";});
+  $("#edDel").hidden=!r;$("#edDel").classList.remove("armed");$("#edDel").textContent="Eliminar";
+  $("#edErr").textContent="";
+  $("#scrim").hidden=false;$("#drawer").hidden=false;
+  updCalc();$("#e_incidencia").focus();
+}
+function closeEditor(){$("#scrim").hidden=true;$("#drawer").hidden=true;cur=null;}
+function readForm(){const o=Object.assign({},cur);FIELDS.forEach(k=>{const el=$("#e_"+k);if(el)o[k]=el.value.trim();});return o;}
+function updCalc(){
+  compileRules();const o=readForm();
+  const af=autoFam(o.articulo),ap=autoProv(o.provOrig),at=autoTrans(o.transOrig),ti=autoTipo(o.articulo);
+  $("#e_familia").placeholder=af;$("#e_provincia").placeholder=ap;$("#e_transporte").placeholder=at;
+  $("#e_tipo").options[0].textContent="Automático ("+ti+")";
+  $("#edCalc").innerHTML=`Según las reglas: <b>${esc(af)}</b> · <b>${esc(ap)}</b> · <b>${esc(at)}</b> · <b>${ti}</b>. Deja un campo de clasificación vacío para usar la regla; escribe un valor para fijarlo a mano.`;
+}
+$("#edForm").addEventListener("input",updCalc);
+$("#edForm").addEventListener("submit",e=>e.preventDefault());
+$("#edClose").addEventListener("click",closeEditor);$("#edCancel").addEventListener("click",closeEditor);$("#scrim").addEventListener("click",closeEditor);
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#drawer").hidden)closeEditor();});
+$("#edSave").addEventListener("click",async()=>{
+  const o=readForm();
+  if(!o.articulo){$("#edErr").textContent="Escribe el artículo golpeado.";$("#e_articulo").focus();return;}
+  if(!parseISO(o.fechaAlb)){$("#edErr").textContent="Indica la fecha del albarán.";$("#e_fechaAlb").focus();return;}
+  if(o.familia)o.familia=o.familia.toUpperCase();
+  const isNew=!o.id;
+  try{await store.put(o);closeEditor();toast(isNew?"Incidencia añadida":"Cambios guardados");}catch(err){$("#edErr").textContent="No se pudo guardar: "+(err.message||err.code);}
+});
+$("#edDel").addEventListener("click",async e=>{
+  const b=e.currentTarget;
+  if(!b.classList.contains("armed")){b.classList.add("armed");b.textContent="Pulsa otra vez para eliminar";return;}
+  try{await store.del(cur.id);closeEditor();toast("Incidencia eliminada");}catch(err){$("#edErr").textContent="No se pudo eliminar: "+(err.message||err.code);}
+});
+$("#btnNew").addEventListener("click",()=>openEditor(null));
+
+/* ---------- rules view ---------- */
+function renderRules(){
+  [["#rTrans","trans"],["#rProv","prov"],["#rFam","fam"]].forEach(([s,k])=>{if(document.activeElement!==$(s))$(s).value=state.rules[k]||"";});
+  renderUnres();
+}
+function renderUnres(){
+  const provNo=[...new Set(all.filter(r=>!r.provincia&&r.provOrig&&!R.prov.some(x=>x.p===norm(r.provOrig))).map(r=>r.prov))];
+  const otros=all.filter(r=>r.fam==="OTROS");
+  const reg=[...new Set(all.filter(r=>r.region).map(r=>r.prov))];
+  $("#unresPanel").innerHTML=`<h3>Qué revisar</h3>
+  <div><b>${otros.length}</b> artículo${otros.length===1?"":"s"} sin familia (<span class="tag otros">OTROS</span>)${otros.length?`: <span class="muted">${otros.slice(0,6).map(r=>esc(r.articulo)).join(" · ")}${otros.length>6?" …":""}</span>`:""}</div>
+  <div><b>${reg.length}</b> región${reg.length===1?"":"es"} sin provincia concreta${reg.length?": "+reg.map(esc).join(", "):""}. Asigna la provincia en cada incidencia o cambia la regla.</div>
+  <div>Provincias tomadas tal cual del Excel (sin regla): <span class="unres">${provNo.map(p=>`<span class="tag">${esc(p)}</span>`).join("")||'<span class="muted">ninguna</span>'}</span></div>`;
+}
+$("#btnRules").addEventListener("click",async()=>{
+  const r={trans:$("#rTrans").value,prov:$("#rProv").value,fam:$("#rFam").value};
+  try{await store.setRules(r);toast("Reglas guardadas");}catch(err){toast("No se pudieron guardar: "+(err.message||err.code));}
+});
+$("#btnRulesReset").addEventListener("click",()=>{$("#rTrans").value=DEFAULT_RULES.trans;$("#rProv").value=DEFAULT_RULES.prov;$("#rFam").value=DEFAULT_RULES.fam;toast("Reglas iniciales cargadas. Pulsa «Guardar reglas» para aplicarlas.");});
+
+/* ---------- period controls ---------- */
+function applyPer(){
+  $("#perSel").value=per.p;$("#perFrom").hidden=$("#perTo").hidden=per.p!=="custom";$("#perFrom").value=per.from;$("#perTo").value=per.to;
+  try{localStorage.setItem(LS+"-per",JSON.stringify(per));}catch(e){}
+}
+$("#perSel").addEventListener("change",e=>{per.p=e.target.value;if(per.p==="custom"&&!per.from){per.from="2026-03-01";per.to=toISO(today());}applyPer();render();});
+$("#perFrom").addEventListener("change",e=>{per.from=e.target.value;applyPer();render();});
+$("#perTo").addEventListener("change",e=>{per.to=e.target.value;applyPer();render();});
+
+/* ---------- Excel import / export ---------- */
+const HEAD={"SERIE":"serie","NUMERO":"numero","FECHA":"fecha","COD. CLIENTE":"codCliente","COD CLIENTE":"codCliente","NOMBRE CLIENTE":"cliente","CLIENTE":"cliente","PROVINCIA":"provOrig","TRANSPORTE":"transOrig","SU NUMERO":"incidencia","INCIDENCIA":"incidencia","FECHA ALBARAN":"fechaAlb","ARTICULOS GOLPEADOS":"articulo","ARTICULO":"articulo","ARTICULO (ORIGINAL)":"articulo","FAMILIA + MODELO":"familia","OBSERVACIONES":"obs"};
+const DATES=["fecha","fechaAlb"];
+function cellDate(v){
+  if(v instanceof Date)return toISO(new Date(v.getFullYear(),v.getMonth(),v.getDate()+(v.getHours()>=12?1:0)));
+  if(typeof v==="number"&&v>20000)return toISO(new Date(Math.round((v-25569)*DAY)+new Date().getTimezoneOffset()*60000));
+  const s=String(v||"").trim();let m=/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/.exec(s);
+  if(m)return toISO(new Date(+(m[3].length===2?"20"+m[3]:m[3]),+m[2]-1,+m[1]));
+  return parseISO(s)?s.slice(0,10):"";
+}
+const key=r=>norm([r.numero,r.incidencia,r.fechaAlb,r.articulo].join("|"));
+$("#fileIn").addEventListener("change",async e=>{
+  const f=e.target.files[0];e.target.value="";if(!f)return;
+  if(!window.XLSX){toast("No se pudo cargar el lector de Excel.");return;}
+  try{
+    const wb=XLSX.read(await f.arrayBuffer(),{type:"array",cellDates:true});
+    let aoa=null,hi=-1;
+    for(const n of ["Hoja1",...wb.SheetNames]){const ws=wb.Sheets[n];if(!ws)continue;const a=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:true});const i=a.findIndex(row=>row.some(c=>norm(c)==="ARTICULOS GOLPEADOS")&&row.some(c=>norm(c)==="FECHA ALBARAN"));if(i>=0){aoa=a;hi=i;break;}}
+    if(!aoa){toast("No encuentro la tabla: necesito una hoja con las columnas «fecha albaran» y «ARTICULOS GOLPEADOS».");return;}
+    const hdr=aoa[hi].map(h=>HEAD[norm(h)]||null);
+    const seen=new Set(state.rows.map(key));let added=0,dup=0;
+    for(const row of aoa.slice(hi+1)){
+      const o={};hdr.forEach((k,i)=>{if(!k||o[k])return;const v=row[i];o[k]=DATES.includes(k)?cellDate(v):String(v??"").replace(/\s+/g," ").trim();});
+      if(!o.articulo)continue;
+      if(seen.has(key(o))){dup++;continue;}
+      seen.add(key(o));await store.put(o);added++;
+    }
+    toast(added?`${added} incidencia${added===1?"":"s"} importada${added===1?"":"s"}${dup?` · ${dup} ya existían`:""}`:"No había incidencias nuevas en el archivo");
+  }catch(err){toast("No se pudo leer el archivo: "+(err.message||err));}
+});
+$("#btnExport").addEventListener("click",async()=>{
+  if(!window.XLSX){toast("No se pudo cargar el generador de Excel.");return;}
+  const list=filteredRows();
+  const H=["Fecha albarán","Incidencia","Serie","Número","Fecha","Cód. cliente","Cliente","Provincia (original)","Provincia","Transporte (original)","Transporte","Artículo golpeado","Familia + modelo","Tipo","Observaciones"];
+  const det=[["ANÁLISIS DE GOLPES · "+periodLabel().toUpperCase()],["Exportado:",fmt(today()),"Incidencias:",list.length],[],H].concat(list.map(r=>[r.d||"",r.incidencia,r.serie,r.numero,parseISO(r.fecha)||"",r.codCliente,r.cliente,r.provOrig,r.prov,r.transOrig,r.trans,r.articulo,r.fam,r.tip,r.obs]));
+  const ws=XLSX.utils.aoa_to_sheet(det,{cellDates:true,dateNF:"dd/mm/yyyy"});
+  ws["!cols"]=H.map((h,i)=>({wch:i===11?70:Math.max(10,h.length+2)}));
+  const sum=[["RESUMEN · "+periodLabel()],[]];
+  const block=(t,k)=>{sum.push([t,"Nº incidencias","%"]);const c=countBy(list,k);c.forEach(([a,n])=>sum.push([a,n,pct(n,list.length)/100]));sum.push(["TOTAL",list.length,1],[]);};
+  block("Familia + modelo","fam");block("Transporte","trans");block("Provincia","prov");block("Tipo","tip");
+  const ws2=XLSX.utils.aoa_to_sheet(sum);ws2["!cols"]=[{wch:34},{wch:15},{wch:8}];
+  const trs=countBy(list,"trans").map(x=>x[0]),pvs=countBy(list,"prov").map(x=>x[0]);
+  const mx=[["Transporte \\ Provincia",...pvs,"Total"]].concat(trs.map(t=>[t,...pvs.map(p=>list.filter(r=>r.trans===t&&r.prov===p).length||""),list.filter(r=>r.trans===t).length]));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,"Detalle");XLSX.utils.book_append_sheet(wb,ws2,"Resumen");XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(mx),"Transporte x Provincia");
+  const buf=XLSX.write(wb,{bookType:"xlsx",type:"array"});
+  const name=`Analisis_golpes_${toISO(today())}.xlsx`;
+  let dl=null;try{if(window.claude&&window.claude.use)dl=await window.claude.use("downloads");}catch(e){}
+  if(dl){try{await dl.save({filename:name,data:new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})});toast("Excel exportado");}catch(e){if(e.code!=="declined")toast("No se pudo exportar: "+(e.message||e.code));}return;}
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([buf]));a.download=name;document.body.appendChild(a);a.click();a.remove();
+});
+
+/* ---------- boot ---------- */
+try{const p=JSON.parse(localStorage.getItem(LS+"-per")||"null");if(p&&p.p)per=p;}catch(e){}
+applyPer();
+let savedTab="resumen";try{savedTab=localStorage.getItem(LS+"-tab")||"resumen";}catch(e){}
+const hash=(location.hash||"").slice(1);
+setTab(["resumen","incidencias","reglas"].includes(hash)?hash:savedTab);
+render(true);
+store.init();
+})();
+</script>
