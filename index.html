@@ -1,0 +1,659 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"></head><body>
+<title>Calendario de Displays</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  color-scheme: light;
+  --ground:#f3f5f8; --surface:#ffffff; --surface-2:#eaeef4; --line:#d7dde6;
+  --ink:#172033; --ink-2:#4d5870; --ink-3:#7c869a;
+  --accent:#c4122f; --accent-ink:#ffffff; --accent-soft:#fbe4e8;
+  --plan:#2d64c8; --plan-soft:#e2ebfa;
+  --act:#18805a; --act-soft:#dcf1e7;
+  --fin:#7a8497; --fin-soft:#e8ebf0;
+  --warn:#8a5b00; --warn-soft:#fff2c9;
+  --alert:#b3261e; --alert-soft:#fde5e3;
+  --today:#ffe27a;
+  --shadow:0 12px 40px rgba(23,32,51,.18);
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --ground:#10141d; --surface:#171d29; --surface-2:#202838; --line:#2d3748;
+    --ink:#e8ecf3; --ink-2:#aeb7c8; --ink-3:#7d879b;
+    --accent:#ff5a72; --accent-ink:#1a0006; --accent-soft:#3a1720;
+    --plan:#7aa6ff; --plan-soft:#1c2a47;
+    --act:#4fd19a; --act-soft:#143428;
+    --fin:#9aa3b5; --fin-soft:#252c3a;
+    --warn:#ffd36b; --warn-soft:#3a3016;
+    --alert:#ff8a80; --alert-soft:#3d1c1a;
+    --today:#6b5a12;
+    --shadow:0 12px 40px rgba(0,0,0,.5);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --ground:#10141d; --surface:#171d29; --surface-2:#202838; --line:#2d3748;
+  --ink:#e8ecf3; --ink-2:#aeb7c8; --ink-3:#7d879b;
+  --accent:#ff5a72; --accent-ink:#1a0006; --accent-soft:#3a1720;
+  --plan:#7aa6ff; --plan-soft:#1c2a47;
+  --act:#4fd19a; --act-soft:#143428;
+  --fin:#9aa3b5; --fin-soft:#252c3a;
+  --warn:#ffd36b; --warn-soft:#3a3016;
+  --alert:#ff8a80; --alert-soft:#3d1c1a;
+  --today:#6b5a12;
+  --shadow:0 12px 40px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font:14px/1.5 var(--f-body);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--plan);outline-offset:2px}
+.wrap{max-width:1320px;margin:0 auto;padding-inline:16px}
+
+/* Header */
+header.top{background:var(--ink);color:var(--ground);}
+:root[data-theme="dark"] header.top{background:var(--surface)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) header.top{background:var(--surface)}}
+header.top .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px;padding-block:14px}
+.brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.brand h1{font:700 26px/1 var(--f-display);letter-spacing:.02em;margin:0;text-transform:uppercase;color:var(--surface)}
+:root[data-theme="dark"] .brand h1{color:var(--ink)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .brand h1{color:var(--ink)}}
+.brand span{font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.7}
+.kwtag{margin-left:auto;display:flex;align-items:center;gap:10px}
+.kwbox{display:flex;align-items:stretch;border-radius:4px;overflow:hidden;font-family:var(--f-display);font-weight:700}
+.kwbox b{background:var(--accent);color:#fff;padding:4px 8px;font-size:13px;letter-spacing:.08em;display:flex;align-items:center}
+.kwbox i{font-style:normal;background:var(--surface);color:var(--ink);padding:2px 10px;font-size:22px;line-height:1.2}
+.today{font-size:13px;opacity:.8;font-variant-numeric:tabular-nums}
+.syncnote{font-size:12px;opacity:.7}
+
+nav.tabs{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+nav.tabs .wrap{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+nav.tabs button{background:none;border:0;padding:12px 14px;cursor:pointer;color:var(--ink-2);font-weight:500;border-bottom:3px solid transparent;white-space:nowrap}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+nav.tabs button:hover{color:var(--ink)}
+nav.tabs .count{font-family:var(--f-mono);font-size:11px;background:var(--surface-2);border-radius:10px;padding:1px 6px;margin-left:6px}
+
+main{padding-block:20px 60px}
+section.view{display:grid;gap:20px}
+h2{font:600 22px/1.1 var(--f-display);text-transform:uppercase;letter-spacing:.03em;margin:0;text-wrap:balance}
+h3{font:600 16px/1.2 var(--f-display);text-transform:uppercase;letter-spacing:.05em;margin:0 0 10px;color:var(--ink-2)}
+.muted{color:var(--ink-3)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px}
+
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0;background:var(--surface);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.kpi{background:var(--surface);box-shadow:1px 1px 0 var(--line);padding:14px 16px;display:grid;gap:2px;align-content:start}
+.kpi .n{font:600 34px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.kpi .l{font-size:12px;color:var(--ink-2)}
+.kpi.act .n{color:var(--act)} .kpi.plan .n{color:var(--plan)} .kpi.fin .n{color:var(--fin)}
+.kpi.alert{background:var(--alert-soft)} .kpi.alert .n{color:var(--alert)}
+.kpi.warn{background:var(--warn-soft)} .kpi.warn .n{color:var(--warn)}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:20px;align-items:start}
+@media (max-width:900px){.grid2{grid-template-columns:minmax(0,1fr)}}
+
+/* Tables */
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
+thead th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);font-weight:600;white-space:nowrap;background:var(--surface)}
+td.num,th.num{text-align:right}
+tfoot td{font-weight:600;border-bottom:0}
+.mono{font-family:var(--f-mono);font-size:12.5px}
+tr.click{cursor:pointer}
+tr.click:hover td{background:var(--surface-2)}
+.grp th{font:600 12px/1 var(--f-display);letter-spacing:.1em;color:var(--ink-2);border-bottom:0;padding-top:12px}
+.grp th + th{border-left:1px solid var(--line)}
+.cell-miss{background:var(--warn-soft);color:var(--warn);font-style:italic}
+
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:20px;padding:2px 10px 2px 8px;font-size:12px;font-weight:600;white-space:nowrap}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.pill.Activo{background:var(--act-soft);color:var(--act)}
+.pill.Planificado{background:var(--plan-soft);color:var(--plan)}
+.pill.Finalizado{background:var(--fin-soft);color:var(--fin)}
+.chips{display:flex;gap:4px}
+.chip{font:600 10.5px/1 var(--f-mono);padding:4px 5px;border-radius:3px;border:1px solid var(--line);color:var(--ink-3)}
+.chip.ok{background:var(--act-soft);border-color:transparent;color:var(--act)}
+.chip.pend{background:var(--alert-soft);border-color:transparent;color:var(--alert)}
+.chip.na{opacity:.45}
+.pend-n{display:inline-block;min-width:24px;text-align:center;border-radius:3px;padding:1px 6px;font-weight:600}
+.pend-n.bad{background:var(--alert-soft);color:var(--alert)}
+.pend-n.good{color:var(--act)}
+
+/* Toolbar */
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.toolbar .grow{flex:1 1 220px}
+input[type=search],input[type=text],input[type=number],select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:7px 10px;width:100%;min-width:0}
+textarea{resize:vertical}
+.toolbar select{width:auto}
+.check{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:4px;padding:7px 14px;cursor:pointer;font-weight:500;white-space:nowrap}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.danger{color:var(--alert);border-color:var(--alert)}
+.btn.danger.armed{background:var(--alert);color:var(--surface)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* Gantt */
+.gantt{border-collapse:separate;border-spacing:0;font-size:12px}
+.gantt th,.gantt td{border-bottom:1px solid var(--line);padding:0}
+.gantt .lbl{position:sticky;left:0;background:var(--surface);z-index:2;padding:6px 10px;min-width:220px;max-width:240px;border-right:1px solid var(--line)}
+.gantt .lbl small{display:block;color:var(--ink-3);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gantt .lbl .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;font-weight:500}
+.gantt thead th{text-align:center;font:600 11px/1 var(--f-mono);color:var(--ink-3);padding:4px 0;min-width:22px;letter-spacing:0;text-transform:none}
+.gantt thead tr.mon th{font:600 11px/1 var(--f-display);letter-spacing:.08em;text-transform:uppercase;text-align:left;padding:6px 4px;border-left:1px solid var(--line);color:var(--ink-2)}
+.gantt td.w{height:34px;position:relative;min-width:22px}
+.gantt td.w.cur, .gantt th.cur{background:var(--today)}
+.gantt td.w.on::after{content:"";position:absolute;left:0;right:0;top:9px;bottom:9px;background:var(--bar)}
+.gantt td.w.on.s::after{left:3px;border-top-left-radius:3px;border-bottom-left-radius:3px}
+.gantt td.w.on.e::after{right:3px;border-top-right-radius:3px;border-bottom-right-radius:3px}
+.gantt tr.Activo{--bar:var(--act)} .gantt tr.Planificado{--bar:var(--plan)} .gantt tr.Finalizado{--bar:var(--fin)}
+.gantt tr.load td.w{background:none}
+.gantt tfoot td{font:600 11px/1 var(--f-mono);text-align:center;padding:6px 0;color:var(--ink-2);border-bottom:0}
+.gantt tfoot td.hot{color:var(--accent)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--ink-2);align-items:center}
+.legend i{display:inline-block;width:18px;height:10px;border-radius:2px;vertical-align:middle;margin-right:6px}
+
+/* Drawer */
+.scrim{position:fixed;inset:0;background:rgba(10,14,22,.45);z-index:20}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(620px,100%);background:var(--surface);z-index:21;box-shadow:var(--shadow);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.drawer header{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line)}
+.drawer header h2{flex:1}
+.drawer .body{overflow-y:auto;padding:16px 20px;display:grid;gap:22px}
+.drawer footer{display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--line);flex-wrap:wrap}
+.drawer footer .sp{flex:1}
+fieldset{border:0;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+legend{font:600 13px/1 var(--f-display);letter-spacing:.12em;text-transform:uppercase;color:var(--accent);padding:0;margin-bottom:10px}
+label.f{display:grid;gap:4px;font-size:12px;color:var(--ink-2);font-weight:500}
+label.f.wide{grid-column:1/-1}
+.calc{font-size:12px;color:var(--ink-2);background:var(--surface-2);border-radius:4px;padding:8px 10px;grid-column:1/-1;font-variant-numeric:tabular-nums}
+.err{color:var(--alert);font-size:12px}
+.mkt{display:grid;grid-template-columns:minmax(0,1fr) 110px 130px;gap:8px 12px;align-items:center;grid-column:1/-1}
+.mkt .h{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3)}
+input.in{color:var(--plan)}
+input.miss{background:var(--warn-soft)}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--ground);padding:10px 16px;border-radius:4px;z-index:40;font-weight:500;max-width:calc(100% - 32px)}
+.empty{padding:40px 16px;text-align:center;color:var(--ink-3)}
+.help{max-width:72ch;display:grid;gap:14px}
+.help dl{display:grid;grid-template-columns:minmax(120px,200px) 1fr;gap:6px 16px;margin:0}
+.help dt{font-weight:600}
+.help dd{margin:0;color:var(--ink-2)}
+@media (max-width:560px){.help dl{grid-template-columns:1fr}.help dd{margin-bottom:8px}}
+.lists{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+.lists ul{margin:0;padding-left:18px;color:var(--ink-2)}
+@media (prefers-reduced-motion:no-preference){.drawer{animation:slide .18s ease-out}@keyframes slide{from{transform:translateX(24px);opacity:.6}}}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><h1>Calendario de Displays</h1><span>Dpto. Compras Rossmann</span></div>
+    <div class="kwtag">
+      <span class="today" id="todayLbl"></span>
+      <div class="kwbox" title="Semana ISO actual"><b>KW</b><i id="kwNow"></i></div>
+    </div>
+  </div>
+</header>
+<nav class="tabs" aria-label="Secciones">
+  <div class="wrap" role="tablist">
+    <button role="tab" data-tab="resumen" id="tab-resumen">Resumen</button>
+    <button role="tab" data-tab="calendario" id="tab-calendario">Calendario<span class="count" id="cntAll">0</span></button>
+    <button role="tab" data-tab="anual" id="tab-anual">Vista anual KW</button>
+    <button role="tab" data-tab="listas" id="tab-listas">Listas</button>
+    <button role="tab" data-tab="ayuda" id="tab-ayuda">Instrucciones</button>
+  </div>
+</nav>
+
+<main class="wrap">
+  <!-- RESUMEN -->
+  <section class="view" id="view-resumen">
+    <div class="toolbar"><h2 class="grow">Resumen</h2><span class="syncnote muted" id="modeNote"></span><button class="btn primary" data-new>+ Nuevo display</button></div>
+    <div class="kpis" id="kpis"></div>
+    <div class="grid2">
+      <div class="panel">
+        <h3>Por tipo de display</h3>
+        <div class="scroll"><table id="byType"></table></div>
+      </div>
+      <div class="panel">
+        <h3>Activos y próximos · por fecha de inicio</h3>
+        <div class="scroll"><table id="upcoming"></table></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CALENDARIO -->
+  <section class="view" id="view-calendario" hidden>
+    <div class="toolbar">
+      <h2>Calendario</h2>
+      <input type="search" class="grow" id="q" placeholder="Buscar marca, EAN, descripción, responsable…" aria-label="Buscar">
+      <select id="fEstado" aria-label="Estado"><option value="">Todos los estados</option><option>Activo</option><option>Planificado</option><option>Finalizado</option></select>
+      <select id="fTipo" aria-label="Tipo de display"></select>
+      <label class="check"><input type="checkbox" id="fPend"> Con acciones pendientes</label>
+      <label class="check"><input type="checkbox" id="fMiss"> Datos incompletos</label>
+    </div>
+    <div class="toolbar">
+      <button class="btn primary" data-new>+ Nuevo display</button>
+      <span class="grow"></span>
+      <label class="btn" for="fileIn">Importar Excel…</label>
+      <input type="file" id="fileIn" accept=".xlsx,.xlsm,.xls" hidden>
+      <button class="btn" id="btnExport">Exportar Excel</button>
+    </div>
+    <div class="panel" style="padding:0">
+      <div class="scroll"><table id="cal"></table></div>
+    </div>
+  </section>
+
+  <!-- VISTA ANUAL -->
+  <section class="view" id="view-anual" hidden>
+    <div class="toolbar">
+      <h2>Vista anual por KW</h2>
+      <span class="grow"></span>
+      <button class="btn" id="yPrev" aria-label="Año anterior">‹</button>
+      <strong id="yLbl" style="font:600 22px/1 var(--f-display);min-width:56px;text-align:center"></strong>
+      <button class="btn" id="yNext" aria-label="Año siguiente">›</button>
+    </div>
+    <div class="legend"><span><i style="background:var(--act)"></i>Activo</span><span><i style="background:var(--plan)"></i>Planificado</span><span><i style="background:var(--fin)"></i>Finalizado</span><span><i style="background:var(--today)"></i>KW actual</span><span>La última fila cuenta displays por semana para detectar solapamientos.</span></div>
+    <div class="panel" style="padding:0"><div class="scroll"><table class="gantt" id="gantt"></table></div></div>
+  </section>
+
+  <!-- LISTAS -->
+  <section class="view" id="view-listas" hidden>
+    <h2>Listas de opciones</h2>
+    <div class="lists">
+      <div class="panel">
+        <h3>Tipo display</h3>
+        <label class="f">Una opción por línea
+          <textarea id="tiposTxt" rows="8"></textarea></label>
+        <div class="toolbar" style="margin-top:10px"><button class="btn primary" id="saveTipos">Guardar tipos</button></div>
+      </div>
+      <div class="panel"><h3>Sí / No</h3><ul><li>Sí</li><li>No</li></ul></div>
+      <div class="panel"><h3>Estado gestión</h3><ul><li>Sí</li><li>Pendiente</li><li>N/A</li></ul></div>
+      <div class="panel"><h3>Estado display</h3><ul><li>Planificado — aún no empieza</li><li>Activo — en tienda hoy</li><li>Finalizado</li></ul><p class="muted" style="margin:10px 0 0;font-size:12px">Se calcula solo a partir de las KW y la fecha de hoy.</p></div>
+    </div>
+  </section>
+
+  <!-- AYUDA -->
+  <section class="view" id="view-ayuda" hidden>
+    <div class="help">
+      <h2>Cómo usar el calendario</h2>
+      <div class="panel">
+        <h3>Añadir un display</h3>
+        <dl>
+          <dt>1 · Producto</dt><dd>Marca, EAN (8 o 13 dígitos), descripción y tipo de display.</dd>
+          <dt>2 · Calendario</dt><dd>Año, KW inicio y KW fin (semanas ISO 1–53). KW fin debe ser igual o mayor que KW inicio.</dd>
+          <dt>3 · Operativa</dt><dd>Nº tiendas, pedido (uds), TO's e IS.</dd>
+          <dt>4 · Marketing</dt><dd>Sí/No en MKT-RRSS, promo instore y promo folleto, y su estado de gestión (Sí / Pendiente / N/A).</dd>
+          <dt>5 · Seguimiento</dt><dd>Responsable y observaciones.</dd>
+          <dt>Varios EAN</dt><dd>Usa un registro por EAN con la misma descripción y KW (el botón «Duplicar» ayuda).</dd>
+        </dl>
+      </div>
+      <div class="panel">
+        <h3>Datos automáticos</h3>
+        <dl>
+          <dt>ID</dt><dd>Código correlativo (D001, D002…).</dd>
+          <dt>Fecha inicio / fin</dt><dd>Lunes de la KW de inicio y domingo de la KW de fin del año indicado.</dd>
+          <dt>Semanas</dt><dd>Duración en semanas.</dd>
+          <dt>Estado</dt><dd>Planificado, Activo o Finalizado según la fecha de hoy.</dd>
+          <dt>Acciones pendientes</dt><dd>Acciones marcadas «Sí» cuyo gestionado no es «Sí». ✓ si todo está gestionado.</dd>
+        </dl>
+      </div>
+      <div class="panel">
+        <h3>Seguimiento semanal</h3>
+        <dl>
+          <dt>Resumen</dt><dd>Revisa qué arranca y termina en las próximas 4 semanas y las acciones pendientes.</dd>
+          <dt>Calendario</dt><dd>Filtra «Con acciones pendientes» o «Datos incompletos» para ver qué hay que cerrar.</dd>
+          <dt>Vista anual KW</dt><dd>Detecta solapamientos de displays en las mismas semanas.</dd>
+          <dt>Excel</dt><dd>«Importar Excel» lee la hoja Calendario Displays del libro original; «Exportar Excel» genera un .xlsx con todos los datos.</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="drawerHost"></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+"use strict";
+const DEFAULT_TIPOS=["Display suelo","Tischdisplay (sobremesa)","Edición limitada (LE)","Góndola / cabecera","Floorstand","Otro"];
+// Example rows taken from the original workbook — only used when running outside claude.ai with no saved data.
+const SAMPLE=[
+ {num:1,marca:"Sunozon",ean:"",descripcion:"Sunozon display",tipo:"Display suelo",anio:2026,kwIni:12,kwFin:35},
+ {num:2,marca:"",ean:"",descripcion:"Longevity LE",tipo:"Edición limitada (LE)",anio:2026,kwIni:12,kwFin:24},
+ {num:3,marca:"",ean:"",descripcion:"Korean Beauty LE",tipo:"Edición limitada (LE)",anio:2026,kwIni:24,kwFin:35},
+ {num:4,marca:"",ean:"",descripcion:"Korean beauty Tischdisplay",tipo:"Tischdisplay (sobremesa)",anio:2026,kwIni:19,kwFin:25}
+];
+const FIELDS=["num","marca","ean","descripcion","tipo","anio","kwIni","kwFin","tiendas","pedido","tos","is","rrss","gRrss","instore","gInstore","folleto","gFolleto","responsable","obs"];
+const MKT=[["rrss","gRrss","MKT-RRSS","RRSS"],["instore","gInstore","Promo instore","INST"],["folleto","gFolleto","Promo folleto","FOLL"]];
+
+/* ---------- dates ---------- */
+const DAY=86400000;
+function today(){const d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate());}
+function isoWeek(d){const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const n=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-n);const y=new Date(Date.UTC(t.getUTCFullYear(),0,1));return Math.ceil(((t-y)/DAY+1)/7);}
+function kwMonday(y,kw){const j4=new Date(y,0,4);const dow=j4.getDay()||7;return new Date(y,0,4-dow+1+(kw-1)*7);}
+function weeksInYear(y){return isoWeek(new Date(y,11,28));}
+const fmt=d=>d?d.toLocaleDateString("es-ES",{day:"2-digit",month:"2-digit",year:"numeric"}):"";
+const fmtShort=d=>d?d.toLocaleDateString("es-ES",{day:"numeric",month:"short"}):"";
+const nf=new Intl.NumberFormat("es-ES");
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const numOrNull=v=>{if(v===""||v==null)return null;const n=Number(String(v).replace(",","."));return isFinite(n)?n:null;};
+
+/* ---------- derived ---------- */
+function derive(r){
+  const o=Object.assign({},r);
+  o.ini=(o.anio&&o.kwIni)?kwMonday(o.anio,o.kwIni):null;
+  o.fin=(o.anio&&o.kwFin)?new Date(kwMonday(o.anio,o.kwFin).getTime()+6*DAY):null;
+  o.semanas=(o.kwIni&&o.kwFin)?o.kwFin-o.kwIni+1:null;
+  const t=today();
+  o.estado=!o.ini?"":(t<o.ini?"Planificado":(o.fin&&t>o.fin?"Finalizado":"Activo"));
+  o.pend=MKT.reduce((a,[k,g])=>a+((o[k]==="Sí"&&o[g]!=="Sí")?1:0),0);
+  o.missMarca=!o.marca; o.missEan=!o.ean;
+  return o;
+}
+let state={rows:[],tipos:DEFAULT_TIPOS.slice()};
+let view=[];
+function recompute(){
+  view=state.rows.slice().sort((a,b)=>(a.num||0)-(b.num||0)).map((r,i)=>Object.assign(derive(r),{code:"D"+String(i+1).padStart(3,"0")}));
+}
+
+/* ---------- storage ---------- */
+const LS="rossmann-displays-v1";
+let db=null, ro=false;
+const store={
+  async init(){
+    try{ if(window.claude&&window.claude.use){ db=await window.claude.use("db"); } }catch(e){db=null;}
+    if(db){
+      $("#modeNote").textContent="Datos compartidos con el equipo";
+      db.collection("displays").onSnapshot(s=>{state.rows=s.docs.map(d=>Object.assign({id:d.id},d.data()));render();},e=>toast("No se pudieron leer los datos: "+e.message));
+      db.doc("config/listas").onSnapshot(s=>{const d=s.exists&&s.data();if(d&&Array.isArray(d.tipos)&&d.tipos.length){state.tipos=d.tipos;render();}});
+    }else{
+      $("#modeNote").textContent="Datos guardados en este navegador";
+      let saved=null; try{saved=JSON.parse(localStorage.getItem(LS)||"null");}catch(e){}
+      if(saved&&Array.isArray(saved.rows)){state=Object.assign(state,saved);}
+      else{state.rows=SAMPLE.map((r,i)=>Object.assign({id:"s"+i},r));}
+      render();
+    }
+  },
+  saveLocal(){try{localStorage.setItem(LS,JSON.stringify(state));}catch(e){}},
+  clean(r){const o={};FIELDS.forEach(k=>{o[k]=r[k]===undefined?null:r[k];});return o;},
+  async put(r){
+    if(!r.id) r.id="d"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    if(db){await db.collection("displays").doc(r.id).set(this.clean(r));}
+    else{const i=state.rows.findIndex(x=>x.id===r.id);if(i>=0)state.rows[i]=r;else state.rows.push(r);this.saveLocal();render();}
+  },
+  async del(id){
+    if(db){await db.collection("displays").doc(id).delete();}
+    else{state.rows=state.rows.filter(x=>x.id!==id);this.saveLocal();render();}
+  },
+  async setTipos(t){
+    if(db){await db.doc("config/listas").set({tipos:t});}
+    else{state.tipos=t;this.saveLocal();render();}
+  }
+};
+function nextNum(){return state.rows.reduce((m,r)=>Math.max(m,r.num||0),0)+1;}
+
+/* ---------- ui helpers ---------- */
+function $(s,root){return (root||document).querySelector(s);}
+function $$(s,root){return Array.from((root||document).querySelectorAll(s));}
+let toastT;
+function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2800);}
+const pill=e=>e?`<span class="pill ${e}">${e}</span>`:`<span class="muted">—</span>`;
+const pendCell=r=>r.pend>0?`<span class="pend-n bad">${r.pend}</span>`:`<span class="pend-n good">✓</span>`;
+function chips(r){return `<span class="chips">${MKT.map(([k,g,,s])=>{let c="na",t=s+": no";if(r[k]==="Sí"){if(r[g]==="Sí"){c="ok";t=s+": gestionado";}else if(r[g]==="N/A"){c="";t=s+": N/A";}else{c="pend";t=s+": pendiente";}}return `<span class="chip ${c}" title="${t}">${s}</span>`;}).join("")}</span>`;}
+
+/* ---------- tabs ---------- */
+let tab="resumen";
+function setTab(t){
+  tab=t;
+  $$("nav.tabs button").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===t)));
+  $$("section.view").forEach(s=>s.hidden=s.id!=="view-"+t);
+  try{localStorage.setItem(LS+"-tab",t);}catch(e){}
+}
+$$("nav.tabs button").forEach(b=>b.addEventListener("click",()=>setTab(b.dataset.tab)));
+
+/* ---------- render ---------- */
+let year=new Date().getFullYear();
+function render(){
+  recompute();
+  const t=today();
+  $("#todayLbl").textContent=t.toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  $("#kwNow").textContent=isoWeek(t);
+  $("#cntAll").textContent=view.length;
+  renderResumen(); renderCal(); renderGantt(); renderListas();
+}
+
+function renderResumen(){
+  const t=today(), t28=new Date(t.getTime()+28*DAY);
+  const c=e=>view.filter(r=>r.estado===e).length;
+  const k=[
+    ["Total displays",view.length,""],
+    ["Activos hoy",c("Activo"),"act"],
+    ["Planificados",c("Planificado"),"plan"],
+    ["Finalizados",c("Finalizado"),"fin"],
+    ["Arrancan en 4 semanas",view.filter(r=>r.ini&&r.ini>t&&r.ini<=t28).length,""],
+    ["Terminan en 4 semanas",view.filter(r=>r.fin&&r.fin>=t&&r.fin<=t28).length,""],
+    ["Acciones MKT/promo pendientes",view.reduce((a,r)=>a+r.pend,0),"alert"],
+    ["Sin marca",view.filter(r=>r.missMarca).length,"warn"],
+    ["Sin EAN",view.filter(r=>r.missEan).length,"warn"],
+    ["Tiendas con display activo",nf.format(view.filter(r=>r.estado==="Activo").reduce((a,r)=>a+(r.tiendas||0),0)),""],
+    ["Uds pedidas (activos + planif.)",nf.format(view.filter(r=>r.estado==="Activo"||r.estado==="Planificado").reduce((a,r)=>a+(r.pedido||0),0)),""]
+  ];
+  $("#kpis").innerHTML=k.map(([l,n,cls])=>`<div class="kpi ${cls&&(cls==="alert"||cls==="warn")&&!Number(n)?"":cls}"><span class="n">${n}</span><span class="l">${l}</span></div>`).join("");
+  const tipos=state.tipos.slice(); view.forEach(r=>{if(r.tipo&&!tipos.includes(r.tipo))tipos.push(r.tipo);});
+  const E=["Planificado","Activo","Finalizado"];
+  const tot=[0,0,0,0];
+  const rows=tipos.map(tp=>{const v=E.map(e=>view.filter(r=>r.tipo===tp&&r.estado===e).length);const s=v.reduce((a,b)=>a+b,0);v.forEach((x,i)=>tot[i]+=x);tot[3]+=s;return `<tr><td>${esc(tp)}</td>${v.map(x=>`<td class="num">${x||'<span class="muted">0</span>'}</td>`).join("")}<td class="num"><b>${s}</b></td></tr>`;}).join("");
+  $("#byType").innerHTML=`<thead><tr><th>Tipo</th><th class="num">Planif.</th><th class="num">Activo</th><th class="num">Final.</th><th class="num">Total</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td>Total</td>${tot.map(x=>`<td class="num">${x}</td>`).join("")}</tr></tfoot>`;
+  const up=view.filter(r=>r.estado==="Activo"||r.estado==="Planificado").sort((a,b)=>a.ini-b.ini);
+  $("#upcoming").innerHTML=up.length?`<thead><tr><th>Descripción</th><th>Tipo</th><th class="num">KW</th><th>Fechas</th><th class="num">Sem.</th><th>Estado</th><th class="num">Pend.</th></tr></thead><tbody>${up.map(r=>`<tr class="click" data-id="${r.id}"><td><b>${esc(r.descripcion)}</b>${r.marca?`<br><span class="muted">${esc(r.marca)}</span>`:""}</td><td>${esc(r.tipo)}</td><td class="num mono">${r.kwIni}–${r.kwFin}</td><td style="white-space:nowrap">${fmtShort(r.ini)} → ${fmtShort(r.fin)}</td><td class="num">${r.semanas}</td><td>${pill(r.estado)}</td><td class="num">${pendCell(r)}</td></tr>`).join("")}</tbody>`:`<tbody><tr><td class="empty">No hay displays activos ni planificados.</td></tr></tbody>`;
+}
+
+function filtered(){
+  const q=$("#q").value.trim().toLowerCase(), e=$("#fEstado").value, tp=$("#fTipo").value, p=$("#fPend").checked, m=$("#fMiss").checked;
+  return view.filter(r=>(!e||r.estado===e)&&(!tp||r.tipo===tp)&&(!p||r.pend>0)&&(!m||r.missMarca||r.missEan)&&(!q||[r.code,r.marca,r.ean,r.descripcion,r.responsable,r.obs,r.tipo].join(" ").toLowerCase().includes(q)));
+}
+function renderCal(){
+  const sel=$("#fTipo"), cur=sel.value;
+  sel.innerHTML=`<option value="">Todos los tipos</option>`+state.tipos.map(t=>`<option ${t===cur?"selected":""}>${esc(t)}</option>`).join("");
+  const rows=filtered();
+  const miss=v=>`<td class="cell-miss">${v}</td>`;
+  $("#cal").innerHTML=`<thead>
+  <tr class="grp"><th colspan="5">Producto</th><th colspan="4">Calendario</th><th colspan="4">Operativa</th><th colspan="2">Marketing y promoción</th><th colspan="2">Seguimiento</th></tr>
+  <tr><th>ID</th><th>Marca</th><th>EAN</th><th>Descripción</th><th>Tipo</th><th class="num">KW</th><th>Fechas</th><th class="num">Sem.</th><th>Estado</th><th class="num">Tiendas</th><th class="num">Pedido</th><th class="num">TO's</th><th class="num">IS</th><th>Acciones</th><th class="num">Pend.</th><th>Responsable</th><th>Observaciones</th></tr></thead>
+  <tbody>${rows.length?rows.map(r=>`<tr class="click" data-id="${r.id}">
+    <td class="mono">${r.code}</td>
+    ${r.missMarca?miss("sin marca"):`<td>${esc(r.marca)}</td>`}
+    ${r.missEan?miss("sin EAN"):`<td class="mono">${esc(r.ean)}</td>`}
+    <td><b>${esc(r.descripcion)}</b></td><td>${esc(r.tipo)}</td>
+    <td class="num mono">${r.kwIni??""}–${r.kwFin??""}<br><span class="muted">${r.anio??""}</span></td>
+    <td style="white-space:nowrap">${fmt(r.ini)}<br><span class="muted">${fmt(r.fin)}</span></td>
+    <td class="num">${r.semanas??""}</td><td>${pill(r.estado)}</td>
+    <td class="num">${r.tiendas!=null?nf.format(r.tiendas):""}</td><td class="num">${r.pedido!=null?nf.format(r.pedido):""}</td>
+    <td class="num">${r.tos!=null?nf.format(r.tos):""}</td><td class="num">${r.is!=null?nf.format(r.is):""}</td>
+    <td>${chips(r)}</td><td class="num">${pendCell(r)}</td>
+    <td>${esc(r.responsable)}</td><td style="max-width:220px">${esc(r.obs)}</td></tr>`).join(""):`<tr><td colspan="17" class="empty">${view.length?"Ningún display coincide con los filtros.":"Aún no hay displays. Crea uno o importa el Excel."}</td></tr>`}</tbody>`;
+}
+["#q","#fEstado","#fTipo","#fPend","#fMiss"].forEach(s=>$(s).addEventListener("input",renderCal));
+
+function renderGantt(){
+  $("#yLbl").textContent=year;
+  const nW=weeksInYear(year), t=today(), curKW=isoWeek(t), curY=(()=>{const d=new Date(t);d.setDate(d.getDate()+4-(d.getDay()||7));return d.getFullYear();})();
+  const rows=view.filter(r=>r.anio===year&&r.kwIni&&r.kwFin).sort((a,b)=>a.kwIni-b.kwIni||a.kwFin-b.kwFin);
+  // months header
+  let mon=[],last=-1;
+  for(let w=1;w<=nW;w++){const m=new Date(kwMonday(year,w).getTime()+3*DAY).getMonth();if(m!==last){mon.push([m,1]);last=m;}else mon[mon.length-1][1]++;}
+  const mName=m=>new Date(2000,m,1).toLocaleDateString("es-ES",{month:"short"}).replace(".","");
+  const W=[...Array(nW)].map((_,i)=>i+1);
+  const isCur=w=>year===curY&&w===curKW;
+  const load=W.map(w=>rows.filter(r=>w>=r.kwIni&&w<=r.kwFin).length);
+  const maxL=Math.max(0,...load);
+  $("#gantt").innerHTML=`<thead><tr class="mon"><th class="lbl"></th>${mon.map(([m,n])=>`<th colspan="${n}">${mName(m)}</th>`).join("")}</tr>
+  <tr><th class="lbl" style="text-align:left;font-family:var(--f-body)">Display</th>${W.map(w=>`<th class="${isCur(w)?"cur":""}">${w}</th>`).join("")}</tr></thead>
+  <tbody>${rows.length?rows.map(r=>`<tr class="${r.estado} click" data-id="${r.id}"><td class="lbl"><span class="t">${esc(r.descripcion)}</span><small>${r.code} · ${esc(r.tipo||"")} · KW ${r.kwIni}–${r.kwFin}</small></td>${W.map(w=>{const on=w>=r.kwIni&&w<=r.kwFin;return `<td class="w${on?" on":""}${w===r.kwIni?" s":""}${w===r.kwFin?" e":""}${isCur(w)?" cur":""}" ${on?`title="KW ${w} · ${esc(r.descripcion)}"`:""}></td>`;}).join("")}</tr>`).join(""):`<tr><td class="lbl muted">Sin displays en ${year}</td><td colspan="${nW}"></td></tr>`}</tbody>
+  <tfoot><tr><td class="lbl" style="font-family:var(--f-body);font-size:12px;text-align:left">Displays en tienda</td>${load.map(n=>`<td class="${n&&n===maxL&&maxL>1?"hot":""}">${n||""}</td>`).join("")}</tr></tfoot>`;
+}
+$("#yPrev").addEventListener("click",()=>{year--;renderGantt();});
+$("#yNext").addEventListener("click",()=>{year++;renderGantt();});
+
+function renderListas(){ if(document.activeElement!==$("#tiposTxt")) $("#tiposTxt").value=state.tipos.join("\n"); }
+$("#saveTipos").addEventListener("click",async()=>{
+  const t=$("#tiposTxt").value.split("\n").map(s=>s.trim()).filter(Boolean);
+  if(!t.length){toast("Añade al menos un tipo de display.");return;}
+  try{await store.setTipos([...new Set(t)]);toast("Tipos guardados");}catch(e){toast("No se pudo guardar: "+(e.message||e.code));}
+});
+
+/* ---------- editor ---------- */
+document.addEventListener("click",e=>{
+  if(e.target.closest("[data-new]")){openEditor(null);return;}
+  const tr=e.target.closest("tr.click[data-id]");
+  if(tr){openEditor(state.rows.find(r=>r.id===tr.dataset.id));}
+});
+function sel(id,opts,val,blank){return `<select id="${id}">${blank?`<option value="">${blank}</option>`:""}${opts.map(o=>`<option ${o===val?"selected":""}>${esc(o)}</option>`).join("")}</select>`;}
+function openEditor(src){
+  const r=Object.assign({anio:new Date().getFullYear()},src||{});
+  const isNew=!src;
+  const tipos=state.tipos.includes(r.tipo)||!r.tipo?state.tipos:[...state.tipos,r.tipo];
+  const code=isNew?"Nuevo":(view.find(v=>v.id===r.id)||{}).code;
+  const host=$("#drawerHost");
+  host.innerHTML=`<div class="scrim" data-close></div>
+  <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="edTitle">
+    <header><h2 id="edTitle">${isNew?"Nuevo display":esc(code+" · "+(r.descripcion||""))}</h2><button class="btn" data-close aria-label="Cerrar">✕</button></header>
+    <form class="body" id="edForm" novalidate>
+      <div><legend>Producto</legend><fieldset>
+        <label class="f">Marca<input type="text" id="e_marca" class="in ${r.marca?"":"miss"}" value="${esc(r.marca)}"></label>
+        <label class="f">EAN<input type="text" id="e_ean" class="in mono ${r.ean?"":"miss"}" inputmode="numeric" value="${esc(r.ean)}" placeholder="8 o 13 dígitos"></label>
+        <label class="f wide">Descripción *<input type="text" id="e_descripcion" class="in" value="${esc(r.descripcion)}" required></label>
+        <label class="f wide">Tipo display${sel("e_tipo",tipos,r.tipo,"— elegir —")}</label>
+      </fieldset></div>
+      <div><legend>Calendario</legend><fieldset>
+        <label class="f">Año<input type="number" id="e_anio" class="in" min="2020" max="2100" value="${r.anio??""}"></label>
+        <label class="f">KW inicio<input type="number" id="e_kwIni" class="in" min="1" max="53" value="${r.kwIni??""}"></label>
+        <label class="f">KW fin<input type="number" id="e_kwFin" class="in" min="1" max="53" value="${r.kwFin??""}"></label>
+        <div class="calc" id="e_calc"></div>
+      </fieldset></div>
+      <div><legend>Operativa</legend><fieldset>
+        <label class="f">Nº tiendas<input type="number" id="e_tiendas" class="in" min="0" value="${r.tiendas??""}"></label>
+        <label class="f">Pedido (uds)<input type="number" id="e_pedido" class="in" min="0" value="${r.pedido??""}"></label>
+        <label class="f">TO's<input type="number" id="e_tos" class="in" min="0" value="${r.tos??""}"></label>
+        <label class="f">IS<input type="number" id="e_is" class="in" min="0" value="${r.is??""}"></label>
+      </fieldset></div>
+      <div><legend>Marketing y promoción</legend><fieldset>
+        <div class="mkt"><span class="h">Acción</span><span class="h">¿Aplica?</span><span class="h">Gestionado</span>
+        ${MKT.map(([k,g,l])=>`<span>${l}</span>${sel("e_"+k,["Sí","No"],r[k],"—")}${sel("e_"+g,["Sí","Pendiente","N/A"],r[g],"—")}`).join("")}</div>
+      </fieldset></div>
+      <div><legend>Seguimiento</legend><fieldset>
+        <label class="f wide">Responsable<input type="text" id="e_responsable" class="in" value="${esc(r.responsable)}"></label>
+        <label class="f wide">Observaciones<textarea id="e_obs" rows="3" class="in">${esc(r.obs)}</textarea></label>
+      </fieldset></div>
+      <div class="err" id="e_err" hidden></div>
+    </form>
+    <footer>
+      ${isNew?"":`<button class="btn danger" id="e_del" type="button">Eliminar</button><button class="btn" id="e_dup" type="button">Duplicar</button>`}
+      <span class="sp"></span>
+      <button class="btn" data-close type="button">Cancelar</button>
+      <button class="btn primary" id="e_save" type="button">${isNew?"Crear display":"Guardar cambios"}</button>
+    </footer>
+  </aside>`;
+  const val=id=>$("#e_"+id).value.trim();
+  function read(){
+    return {id:r.id,num:r.num||nextNum(),marca:val("marca"),ean:val("ean").replace(/\s/g,""),descripcion:val("descripcion"),tipo:val("tipo"),
+      anio:numOrNull(val("anio")),kwIni:numOrNull(val("kwIni")),kwFin:numOrNull(val("kwFin")),
+      tiendas:numOrNull(val("tiendas")),pedido:numOrNull(val("pedido")),tos:numOrNull(val("tos")),is:numOrNull(val("is")),
+      rrss:val("rrss"),gRrss:val("gRrss"),instore:val("instore"),gInstore:val("gInstore"),folleto:val("folleto"),gFolleto:val("gFolleto"),
+      responsable:val("responsable"),obs:$("#e_obs").value.trim()};
+  }
+  function validate(o){
+    const e=[];
+    if(!o.descripcion)e.push("Escribe una descripción.");
+    if(o.ean&&!/^(\d{8}|\d{13})$/.test(o.ean))e.push("El EAN debe tener 8 o 13 dígitos.");
+    const nW=o.anio?weeksInYear(o.anio):53;
+    if(o.kwIni!=null&&(o.kwIni<1||o.kwIni>nW||!Number.isInteger(o.kwIni)))e.push(`KW inicio debe estar entre 1 y ${nW}.`);
+    if(o.kwFin!=null&&(o.kwFin<1||o.kwFin>nW||!Number.isInteger(o.kwFin)))e.push(`KW fin debe estar entre 1 y ${nW}.`);
+    if(o.kwIni!=null&&o.kwFin!=null&&o.kwFin<o.kwIni)e.push("KW fin debe ser igual o mayor que KW inicio.");
+    return e;
+  }
+  function upd(){
+    const o=read(),d=derive(o);
+    $("#e_calc").innerHTML=d.ini&&d.fin?`${fmt(d.ini)} → ${fmt(d.fin)} · <b>${d.semanas} semana${d.semanas===1?"":"s"}</b> · ${pill(d.estado)}`:"Indica año y KW para calcular fechas y estado.";
+    $("#e_marca").classList.toggle("miss",!o.marca); $("#e_ean").classList.toggle("miss",!o.ean);
+  }
+  upd(); $("#edForm").addEventListener("input",upd);
+  const close=()=>{host.innerHTML="";document.removeEventListener("keydown",onKey);};
+  const onKey=e=>{if(e.key==="Escape")close();};
+  document.addEventListener("keydown",onKey);
+  $$("[data-close]",host).forEach(b=>b.addEventListener("click",close));
+  $("#e_save").addEventListener("click",async()=>{
+    const o=read(),err=validate(o);
+    if(err.length){$("#e_err").hidden=false;$("#e_err").textContent=err.join(" ");return;}
+    $("#e_save").disabled=true;
+    try{await store.put(o);close();toast(isNew?"Display creado":"Cambios guardados");}
+    catch(e){$("#e_save").disabled=false;$("#e_err").hidden=false;$("#e_err").textContent="No se pudo guardar ("+(e.code||e.message)+"). Puede que solo tengas permiso de lectura.";}
+  });
+  if(!isNew){
+    const del=$("#e_del");
+    del.addEventListener("click",async()=>{
+      if(!del.classList.contains("armed")){del.classList.add("armed");del.textContent="Confirmar eliminación";return;}
+      try{await store.del(r.id);close();toast("Display eliminado");}catch(e){toast("No se pudo eliminar: "+(e.code||e.message));}
+    });
+    $("#e_dup").addEventListener("click",()=>{const o=read();delete o.id;o.num=nextNum();o.ean="";openEditor(null);fill(o);});
+  }
+  $("#e_descripcion").focus();
+}
+function fill(o){Object.keys(o).forEach(k=>{const el=$("#e_"+k);if(el&&o[k]!=null)el.value=o[k];});$("#edForm").dispatchEvent(new Event("input"));}
+
+/* ---------- Excel import / export ---------- */
+const HEAD={"Marca":"marca","EAN":"ean","Descripción":"descripcion","Tipo display":"tipo","Año":"anio","KW inicio":"kwIni","KW fin":"kwFin","Nº tiendas":"tiendas","Pedido (uds)":"pedido","TO's":"tos","IS":"is","MKT-RRSS":"rrss","Gestionado RRSS":"gRrss","Promo instore":"instore","Gestionado instore":"gInstore","Promo folleto":"folleto","Gestionado folleto":"gFolleto","Responsable":"responsable","Observaciones":"obs"};
+const NUMS=["anio","kwIni","kwFin","tiendas","pedido","tos","is"];
+$("#fileIn").addEventListener("change",async e=>{
+  const f=e.target.files[0]; e.target.value=""; if(!f)return;
+  if(!window.XLSX){toast("No se pudo cargar el lector de Excel.");return;}
+  try{
+    const wb=XLSX.read(await f.arrayBuffer(),{type:"array"});
+    const ws=wb.Sheets["Calendario Displays"]||wb.Sheets[wb.SheetNames[0]];
+    const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+    const hi=aoa.findIndex(row=>row.includes("Descripción")&&row.includes("KW inicio"));
+    if(hi<0){toast("No encuentro la tabla: falta la cabecera con «Descripción» y «KW inicio».");return;}
+    const hdr=aoa[hi]; let n=nextNum(), added=0;
+    const existing=new Set(state.rows.map(r=>[r.descripcion,r.ean,r.anio,r.kwIni,r.kwFin].join("|")));
+    for(const row of aoa.slice(hi+1)){
+      const o={};
+      hdr.forEach((h,i)=>{const k=HEAD[String(h).trim()];if(k){let v=row[i];if(typeof v==="string")v=v.trim();o[k]=NUMS.includes(k)?numOrNull(v):(v===""?"":String(v));}});
+      if(!o.descripcion)continue;
+      if(existing.has([o.descripcion,o.ean,o.anio,o.kwIni,o.kwFin].join("|")))continue;
+      o.num=n++; await store.put(o); added++;
+    }
+    toast(added?`${added} display${added===1?"":"s"} importado${added===1?"":"s"}`:"No había displays nuevos en el archivo");
+  }catch(err){toast("No se pudo leer el archivo: "+(err.message||err));}
+});
+$("#btnExport").addEventListener("click",async()=>{
+  if(!window.XLSX){toast("No se pudo cargar el generador de Excel.");return;}
+  const H=["ID","Marca","EAN","Descripción","Tipo display","Año","KW inicio","KW fin","Fecha inicio","Fecha fin","Semanas","Estado","Nº tiendas","Pedido (uds)","TO's","IS","MKT-RRSS","Gestionado RRSS","Promo instore","Gestionado instore","Promo folleto","Gestionado folleto","Acciones pendientes","Responsable","Observaciones"];
+  const data=[["CALENDARIO DE DISPLAYS · DPTO. COMPRAS ROSSMANN"],["Exportado:",fmt(today()),"KW actual:",isoWeek(today())],[],H].concat(view.map(r=>[r.code,r.marca,r.ean,r.descripcion,r.tipo,r.anio,r.kwIni,r.kwFin,r.ini,r.fin,r.semanas,r.estado,r.tiendas,r.pedido,r.tos,r.is,r.rrss,r.gRrss,r.instore,r.gInstore,r.folleto,r.gFolleto,r.pend,r.responsable,r.obs]));
+  const ws=XLSX.utils.aoa_to_sheet(data,{cellDates:true,dateNF:"dd/mm/yyyy"});
+  ws["!cols"]=H.map(h=>({wch:Math.max(8,h.length+2)}));
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Calendario Displays");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([["Tipo display"]].concat(state.tipos.map(t=>[t]))),"Listas");
+  const buf=XLSX.write(wb,{bookType:"xlsx",type:"array"});
+  const name=`Calendario_Displays_KW${isoWeek(today())}.xlsx`;
+  let dl=null; try{ if(window.claude&&window.claude.use) dl=await window.claude.use("downloads"); }catch(e){}
+  if(dl){ try{await dl.save({filename:name,data:new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})});toast("Excel exportado");}catch(e){if(e.code!=="declined")toast("No se pudo exportar: "+(e.message||e.code));} return; }
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([buf])); a.download=name; document.body.appendChild(a); a.click(); a.remove();
+});
+
+/* ---------- boot ---------- */
+let saved="resumen"; try{saved=localStorage.getItem(LS+"-tab")||"resumen";}catch(e){}
+const hash=(location.hash||"").slice(1);
+setTab(["resumen","calendario","anual","listas","ayuda"].includes(hash)?hash:saved);
+render();
+store.init();
+})();
+</script>
+</body></html>
