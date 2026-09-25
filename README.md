@@ -49,3 +49,14 @@ App web creada a partir del libro `ANALISIS_GOLPES_DESDE_MARZO_26.xlsx` (hojas *
 - **Tipo**: «Pérdida» cuando el artículo dice *pierde agencia* / *perdida*; si no, «Golpe».
 - **Familia + modelo**: gana el patrón que aparece antes en la descripción; se puede fijar a mano en cada incidencia (igual que la columna D editable del Excel).
 - **Importar Excel…** lee una hoja con las columnas de *Hoja1* (`fecha albaran`, `ARTICULOS GOLPEADOS`, `Su número`…) y añade solo las incidencias nuevas. **Exportar Excel** genera *Detalle*, *Resumen* y *Transporte x Provincia* del periodo y filtros activos.
+
+---
+
+## Despliegue en Vercel
+
+Son páginas estáticas: no hay build. En Vercel, **Add New… → Project**, importa este repositorio de GitHub, deja *Framework Preset* en **Other** y sin comando de build, y pulsa **Deploy**.
+
+- `/` → Calendario de Displays (`index.html`)
+- `/golpes` → Análisis de Golpes (`golpes.html`)
+
+En Vercel los datos se guardan en el navegador de cada usuario (`localStorage`); para compartirlos entre el equipo usa *Exportar / Importar Excel*.
